@@ -3445,6 +3445,9 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
         HidePost.HidePostListener listener = new HidePost.HidePostListener() {
             @Override
             public void success() {
+                if (hidden) {
+                    Mod69PostActions.autoDownvoteOnHide(mActivity, mOauthRetrofit, post);
+                }
                 onHidden(post, position, hidden, onSuccess);
             }
 

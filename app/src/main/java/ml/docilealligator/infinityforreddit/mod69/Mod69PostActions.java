@@ -258,9 +258,19 @@ public final class Mod69PostActions {
         row.row.setVisibility(show ? View.VISIBLE : View.GONE);
         row.download.setVisibility(canDownload(post) ? View.VISIBLE : View.GONE);
         boolean downloaded = showMark(activity) && Mod69Hooks.isDownloaded(activity, post.getFullName());
-        row.mark.setVisibility(downloaded ? View.VISIBLE : View.GONE);
-        if (downloaded && !show) row.row.setVisibility(View.VISIBLE);
-        row.download.setOnClickListener(v -> download(activity, post));
+        row.setDownloaded(downloaded);
+        boolean album = post.getPostType() == Post.GALLERY_TYPE && post.getGallery() != null && post.getGallery().size() > 1;
+        row.select.setVisibility(album ? View.VISIBLE : View.GONE);
+        row.select.setOnClickListener(v -> showGallerySelect(activity, post));
+        row.download.setOnClickListener(v -> {
+            if (album) {
+                // plain tap on an album downloads all of it; the select icon picks images
+                Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
+                schedule(activity, DownloadMediaService.constructGalleryDownloadAllMediaJobInfo(activity, 5000000L * post.getGallery().size(), post));
+            } else {
+                download(activity, post);
+            }
+        });
         row.hide.setOnClickListener(v -> hide(activity, oauthRetrofit, post, position,
                 () -> Mod69Ui.setCollapsed(itemView, true)));
         row.block.setOnClickListener(v -> block(activity, oauthRetrofit, post,

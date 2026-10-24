@@ -2,13 +2,15 @@ package ml.docilealligator.infinityforreddit.mod69;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,20 +21,37 @@ import ml.docilealligator.infinityforreddit.R;
 public final class Mod69Ui {
     private Mod69Ui() {}
 
-    /** The row of mod buttons under a post or comment. */
+    /** The row of icon buttons under a post or comment, spread evenly over the full width. */
     public static final class ActionRow {
         public final LinearLayout row;
-        public final TextView download;
-        public final TextView hide;
-        public final TextView block;
-        public final TextView mark;
+        public final ImageView download;
+        public final ImageView select;
+        public final ImageView hide;
+        public final ImageView block;
+        final int iconColor;
 
-        ActionRow(LinearLayout row, TextView download, TextView hide, TextView block, TextView mark) {
+        ActionRow(LinearLayout row, ImageView download, ImageView select, ImageView hide, ImageView block, int iconColor) {
             this.row = row;
             this.download = download;
+            this.select = select;
             this.hide = hide;
             this.block = block;
-            this.mark = mark;
+            this.iconColor = iconColor;
+        }
+
+        /** Downloaded: orange (Reddit orange) background with a black icon. Otherwise plain. */
+        public void setDownloaded(boolean downloaded) {
+            Context c = download.getContext();
+            if (downloaded) {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(0xFFFF4500);
+                bg.setCornerRadius(dp(c, 18));
+                download.setBackground(bg);
+                download.setColorFilter(0xFF000000, PorterDuff.Mode.SRC_IN);
+            } else {
+                download.setBackground(selectable(c));
+                download.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            }
         }
     }
 
@@ -40,19 +59,30 @@ public final class Mod69Ui {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics()));
     }
 
-    private static TextView button(Context c, int textRes, int color) {
-        TextView t = new TextView(c);
-        t.setText(textRes);
-        t.setTextColor(color);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        t.setGravity(Gravity.CENTER);
-        t.setPadding(dp(c, 12), dp(c, 6), dp(c, 12), dp(c, 6));
-        TypedArray a = c.obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground});
-        t.setBackground(a.getDrawable(0));
+    private static android.graphics.drawable.Drawable selectable(Context c) {
+        TypedArray a = c.obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackgroundBorderless});
+        android.graphics.drawable.Drawable d = a.getDrawable(0);
         a.recycle();
-        t.setClickable(true);
-        t.setFocusable(true);
-        return t;
+        return d;
+    }
+
+    private static ImageView icon(Context c, int drawableRes, int descRes, int color) {
+        ImageView v = new ImageView(c);
+        v.setImageResource(drawableRes);
+        v.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        v.setScaleType(ImageView.ScaleType.CENTER);
+        v.setPadding(dp(c, 8), dp(c, 8), dp(c, 8), dp(c, 8));
+        v.setBackground(selectable(c));
+        v.setContentDescription(c.getString(descRes));
+        v.setClickable(true);
+        v.setFocusable(true);
+        return v;
+    }
+
+    private static void addEven(LinearLayout row, ImageView v) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(row.getContext(), 40), 1f);
+        lp.setMargins(dp(row.getContext(), 6), dp(row.getContext(), 2), dp(row.getContext(), 6), dp(row.getContext(), 2));
+        row.addView(v, lp);
     }
 
     /**
@@ -76,21 +106,15 @@ public final class Mod69Ui {
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView download = button(c, R.string.mod69_download, textColor);
-        TextView hide = button(c, R.string.mod69_hide, textColor);
-        TextView block = button(c, R.string.mod69_block, textColor);
-        TextView mark = new TextView(c);
-        mark.setText("✓ " + c.getString(R.string.mod69_downloaded));
-        mark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        mark.setTextColor(0xFF4CAF50);
-        mark.setPadding(dp(c, 8), 0, dp(c, 8), 0);
-        mark.setVisibility(View.GONE);
-        row.addView(download);
-        row.addView(hide);
-        row.addView(block);
-        View spacer = new View(c);
-        row.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
-        row.addView(mark);
+        ImageView download = icon(c, R.drawable.mod69_ic_download, R.string.mod69_download, textColor);
+        ImageView select = icon(c, R.drawable.mod69_ic_select, R.string.mod69_select_images, textColor);
+        ImageView hide = icon(c, R.drawable.mod69_ic_hide, R.string.mod69_hide, textColor);
+        ImageView block = icon(c, R.drawable.mod69_ic_block, R.string.mod69_block, textColor);
+        select.setVisibility(View.GONE);
+        addEven(row, download);
+        addEven(row, select);
+        addEven(row, hide);
+        addEven(row, block);
 
         int index = container.indexOfChild(toolbar);
         ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
@@ -109,7 +133,7 @@ public final class Mod69Ui {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         container.addView(wrapper, index, lp);
 
-        ActionRow ar = new ActionRow(row, download, hide, block, mark);
+        ActionRow ar = new ActionRow(row, download, select, hide, block, textColor);
         toolbar.setTag(R.id.mod69_action_row, ar);
         return ar;
     }

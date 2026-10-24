@@ -311,9 +311,12 @@ public final class Mod69Comments {
         row.download.setVisibility(show && media ? View.VISIBLE : View.GONE);
         row.hide.setVisibility(show ? View.VISIBLE : View.GONE);
         row.block.setVisibility(show ? View.VISIBLE : View.GONE);
-        row.hide.setText(R.string.mod69_hide_user_short);
-        row.block.setText(R.string.mod69_block_user_short);
-        row.mark.setVisibility(downloaded ? View.VISIBLE : View.GONE);
+        row.hide.setImageResource(R.drawable.mod69_ic_close);
+        row.hide.setColorFilter(row.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
+        row.hide.setContentDescription(activity.getString(R.string.mod69_hide_user_short));
+        row.block.setContentDescription(activity.getString(R.string.mod69_block_user_short));
+        row.select.setVisibility(View.GONE);
+        row.setDownloaded(downloaded);
         row.download.setOnClickListener(v -> download(activity, post, comment, null));
         row.hide.setOnClickListener(v -> new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.mod69_hide_user)
