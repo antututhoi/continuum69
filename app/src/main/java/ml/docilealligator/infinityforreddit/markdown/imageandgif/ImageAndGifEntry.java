@@ -147,7 +147,17 @@ public class ImageAndGifEntry extends MarkwonAdapter.Entry<ImageAndGifBlock, Ima
         // re-corrected from the real drawable in onResourceReady. See issue #4.
         applyFullWidthSize(holder.binding.imageViewMarkdownImageAndGifBlock, srcWidth, srcHeight);
 
-        if (node.mediaMetadata.isGIF && !autoplayCommentGif) {
+        // 69 mod: animated pictures in comments never play by themselves. They show their first frame
+        // with a "▶ GIF" badge; tapping the badge plays them right there.
+        holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.setVisibility(node.mediaMetadata.isGIF ? View.VISIBLE : View.GONE);
+        holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.setOnClickListener(v -> {
+            v.setVisibility(View.GONE);
+            glide.load(url)
+                    .apply(RequestOptions.bitmapTransform(new CenterInside()))
+                    .downsample(saveMemoryCenterInsideDownsampleStrategy)
+                    .into(holder.binding.imageViewMarkdownImageAndGifBlock);
+        });
+        if (node.mediaMetadata.isGIF) {
             // Autoplay-gifs-in-comments is off: load only the first frame so the gif stays still.
             // The animated-image decoder ignores Glide's dontAnimate(), but asBitmap() always
             // yields a single frame. Tapping it still opens the animated gif in the media viewer.
@@ -244,6 +254,7 @@ public class ImageAndGifEntry extends MarkwonAdapter.Entry<ImageAndGifBlock, Ima
         holder.binding.loadImageErrorTextViewMarkdownImageAndGifBlock.setVisibility(View.GONE);
         holder.binding.captionTextViewMarkdownImageAndGifBlock.setVisibility(View.GONE);
         holder.binding.captionTextViewMarkdownImageAndGifBlock.setGravity(Gravity.CENTER_HORIZONTAL);
+        holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.setVisibility(View.GONE);
     }
 
     @Nullable

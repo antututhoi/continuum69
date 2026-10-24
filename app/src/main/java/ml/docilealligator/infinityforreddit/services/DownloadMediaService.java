@@ -152,6 +152,12 @@ public class DownloadMediaService extends JobService {
     /** 69 mod: notification thumbnails and "only a preview could be saved" warnings. */
     private final java.util.Map<Integer, android.graphics.Bitmap> mThumbnails = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Set<Integer> mPreviewOnlyNotifications = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    /** 69 mod: details shown in the finished notification, and every file an album download saved (for Open / Delete). */
+    private final java.util.Map<Integer, String> mInfo = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Integer, java.util.ArrayList<String>> mSavedUris = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Integer, Integer> mSkipped = new java.util.concurrent.ConcurrentHashMap<>();
+    /** "high" or "low": download this one in the other quality. */
+    public static final String EXTRA_MOD69_QUALITY = "M69Q";
     @Inject
     @Named("oauth")
     Retrofit mOauthRetrofit;
@@ -723,6 +729,25 @@ public class DownloadMediaService extends JobService {
         mediaType == EXTRA_MEDIA_TYPE_GIF ? "GIF" : "IMAGE") + ")" +
         ", fileName=" + fileName + ", isNsfw=" + isNsfw);
 
+        // 69 mod: already downloaded and the file is still there? Skip it and say so.
+        String mod69Key = Mod69Hooks.markKey(intent);
+        String mod69OrigName = fileName;
+        if (intent.getInt(EXTRA_IS_SHARE, 0) != 1) {
+            Uri mod69Existing = Mod69Hooks.existingFile(this, mod69Key, mod69OrigName);
+            if (mod69Existing != null) {
+                mod69Saved(randomNotificationIdOffset, mod69Existing);
+                if (multipleDownloads) {
+                    mSkipped.merge(randomNotificationIdOffset, 1, Integer::sum);
+                } else {
+                    mInfo.put(randomNotificationIdOffset, getString(R.string.mod69_already_downloaded));
+                    updateNotification(builder, mediaType, R.string.mod69_already_downloaded_title, -1,
+                            randomNotificationIdOffset, mod69Existing, mimeType);
+                    jobFinished(params, false);
+                }
+                return true;
+            }
+        }
+
         String imageHostName = intent.getString(EXTRA_IMAGE_HOST, null);
         String imageHostPageUrl = intent.getString(EXTRA_IMAGE_HOST_PAGE_URL, null);
         if (fileUrl == null && imageHostName != null && imageHostPageUrl != null) {
@@ -937,7 +962,8 @@ public class DownloadMediaService extends JobService {
                 String mod69DeclaredExt = null;
                 int mod69Dot = fileName.lastIndexOf('.');
                 if (mod69Dot > 0) mod69DeclaredExt = fileName.substring(mod69Dot + 1).toLowerCase(java.util.Locale.ROOT);
-                MediaProcessor.Result mod69 = MediaProcessor.process(this, mSharedPreferences, mod69Temp, mediaType, mod69DeclaredExt);
+                MediaProcessor.Result mod69 = MediaProcessor.process(this, mSharedPreferences, mod69Temp, mediaType, mod69DeclaredExt,
+                        intent.getString(EXTRA_MOD69_QUALITY, null));
                 if (!mod69.extension.equalsIgnoreCase(mod69DeclaredExt == null ? "" : mod69DeclaredExt)) {
                     fileName = replaceExtension(fileName, mod69.extension);
                     mimeType = mod69.mimeType;
@@ -946,6 +972,14 @@ public class DownloadMediaService extends JobService {
                     if (!multipleDownloads) {
                         builder.setContentTitle(fileName);
                     }
+                }
+                if (!mod69.suffix.isEmpty()) {
+                    fileName = MediaProcessor.withSuffix(fileName, mod69.suffix);
+                    if (!multipleDownloads) builder.setContentTitle(fileName);
+                }
+                if (!multipleDownloads) {
+                    String mod69Info = MediaProcessor.notificationInfo(mod69);
+                    mInfo.put(randomNotificationIdOffset, mod69Info);
                 }
                 int mod69SavedType = mod69.mediaType;
                 if (mod69.thumbnail != null) {
@@ -987,6 +1021,8 @@ public class DownloadMediaService extends JobService {
                     Uri destinationFileUri = writeResponseBodyToDisk(mod69Body, isDefaultDestination,
                             destinationFileUriString, fileName, mod69SavedType);
                     Log.d("ImgurDownload", "File written successfully");
+                    Mod69Hooks.recordFile(this, mod69Key, mod69OrigName, destinationFileUri);
+                    mod69Saved(randomNotificationIdOffset, destinationFileUri);
                     Mod69Hooks.onMediaDownloaded(this, intent, mOauthRetrofit, mCurrentAccountSharedPreferences, mSharedPreferences);
                     downloadFinished(params, builder, mediaType, randomNotificationIdOffset,
                             mimeType, destinationFileUri, NO_ERROR, multipleDownloads);
@@ -1059,6 +1095,10 @@ public class DownloadMediaService extends JobService {
         throw lastError != null ? lastError : new IOException("download failed");
     }
 
+    private void mod69Saved(int offset, Uri uri) {
+        mSavedUris.computeIfAbsent(offset, k -> new java.util.ArrayList<>()).add(uri.toString());
+    }
+
     private Notification createNotification(NotificationCompat.Builder builder, @Nullable String fileName) {
         builder.setContentTitle(fileName).setContentText(getString(R.string.downloading)).setProgress(100, 0, false);
         return builder.setSmallIcon(R.drawable.ic_notification)
@@ -1080,6 +1120,12 @@ public class DownloadMediaService extends JobService {
                         && (contentStringResId == R.string.downloading_media_finished
                         || contentStringResId == R.string.download_gallery_failed_some_images)) {
                     text = text + "\n" + getString(R.string.mod69_saved_preview_only);
+                }
+                if (progress < 0) {
+                    String mod69Info = mInfo.get(randomNotificationIdOffset);
+                    if (mod69Info != null && !mod69Info.isEmpty()) text = text + "\n" + mod69Info;
+                    Integer mod69Skips = mSkipped.get(randomNotificationIdOffset);
+                    if (mod69Skips != null && mod69Skips > 0) text = text + "\n" + getString(R.string.mod69_skipped_count, mod69Skips);
                 }
                 builder.setContentText(text);
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));
@@ -1113,11 +1159,32 @@ public class DownloadMediaService extends JobService {
 
                 builder.addAction(new NotificationCompat.Action(R.drawable.ic_notification, getString(R.string.share), shareActionPendingIntent));
 
-                Intent deleteIntent = new Intent(this, DownloadedMediaDeleteActionBroadcastReceiver.class);
-                deleteIntent.setData(mediaUri);
-                deleteIntent.putExtra(DownloadedMediaDeleteActionBroadcastReceiver.EXTRA_NOTIFICATION_ID, getNotificationId(mediaType, randomNotificationIdOffset));
-                PendingIntent deleteActionPendingIntent = PendingIntent.getBroadcast(this, 2, deleteIntent, pendingIntentFlags);
+                // 69 mod: "Delete" asks first, and clears the downloaded mark so it can be downloaded again
+                java.util.ArrayList<String> mod69One = new java.util.ArrayList<>();
+                mod69One.add(mediaUri.toString());
+                int mod69NotificationId = getNotificationId(mediaType, randomNotificationIdOffset);
+                PendingIntent deleteActionPendingIntent = PendingIntent.getActivity(this, mod69NotificationId,
+                        ml.docilealligator.infinityforreddit.mod69.Mod69ConfirmDeleteActivity.intent(this, mod69One, mod69NotificationId),
+                        pendingIntentFlags);
                 builder.addAction(new NotificationCompat.Action(R.drawable.ic_notification, getString(R.string.delete), deleteActionPendingIntent));
+            } else if (progress < 0) {
+                // 69 mod: a finished album: Open (first file) and Delete the whole album, with a confirm
+                java.util.ArrayList<String> mod69All = mSavedUris.get(randomNotificationIdOffset);
+                if (mod69All != null && !mod69All.isEmpty()) {
+                    int pendingIntentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;
+                    int mod69NotificationId = getNotificationId(mediaType, randomNotificationIdOffset);
+                    Intent open = new Intent(Intent.ACTION_VIEW);
+                    Uri first = Uri.parse(mod69All.get(0));
+                    open.setDataAndType(first, getContentResolver().getType(first));
+                    open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    PendingIntent openPending = PendingIntent.getActivity(this, mod69NotificationId + 1, open, pendingIntentFlags);
+                    builder.setContentIntent(openPending);
+                    builder.addAction(new NotificationCompat.Action(R.drawable.ic_notification, getString(R.string.mod69_open), openPending));
+                    PendingIntent deleteAll = PendingIntent.getActivity(this, mod69NotificationId,
+                            ml.docilealligator.infinityforreddit.mod69.Mod69ConfirmDeleteActivity.intent(this, new java.util.ArrayList<>(mod69All), mod69NotificationId),
+                            pendingIntentFlags);
+                    builder.addAction(new NotificationCompat.Action(R.drawable.ic_notification, getString(R.string.mod69_delete_album), deleteAll));
+                }
             }
 
             NotificationUtils.notifyIfPermitted(this, notificationManager, getNotificationId(mediaType, randomNotificationIdOffset), builder.build());

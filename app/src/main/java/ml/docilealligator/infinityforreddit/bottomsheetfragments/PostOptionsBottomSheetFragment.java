@@ -685,6 +685,7 @@ public class PostOptionsBottomSheetFragment extends LandscapeExpandedRoundedBott
             extras.putInt(DownloadMediaService.EXTRA_IS_NSFW, mPost.isNSFW() ? 1 : 0);
 
             //TODO: contentEstimatedBytes
+            extras.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, mPost.getFullName()); // 69 mod
             JobInfo jobInfo = DownloadMediaService.constructJobInfo(mBaseActivity, 5000000, extras);
             ((JobScheduler) mBaseActivity.getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
 

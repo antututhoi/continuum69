@@ -25,6 +25,22 @@
             android:layout_gravity="center" />
 
         <TextView
+            android:id="@+id/mod69_play_badge_markdown_image_and_gif_block"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="@drawable/mod69_play_badge_bg"
+            android:paddingStart="18dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="10dp"
+            android:text="▶ GIF"
+            android:textColor="#FFFFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/load_image_error_text_view_markdown_image_and_gif_block"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

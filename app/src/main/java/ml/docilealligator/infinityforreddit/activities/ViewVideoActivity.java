@@ -1480,7 +1480,8 @@ public class ViewVideoActivity extends AppCompatActivity
             extras.putInt(DownloadMediaService.EXTRA_IS_NSFW, viewVideoViewModel.isNSFW() ? 1 : 0);
             extras.putInt(DownloadMediaService.EXTRA_IS_SHARE, 1);
 
-            JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
+            if (viewVideoViewModel.getId() != null) extras.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, "t3_" + viewVideoViewModel.getId()); // 69 mod
+        JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
             ((JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
         } else {
             extras.putString(DownloadRedditVideoService.EXTRA_VIDEO_URL, viewVideoViewModel.getVideoDownloadUrl());
@@ -1625,7 +1626,8 @@ public class ViewVideoActivity extends AppCompatActivity
                 extras.putInt(DownloadMediaService.EXTRA_IS_NSFW, viewVideoViewModel.isNSFW() ? 1 : 0);
 
                 //TODO: contentEstimatedBytes
-                JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
+                if (viewVideoViewModel.getId() != null) extras.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, "t3_" + viewVideoViewModel.getId()); // 69 mod
+        JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
                 ((JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
             } else {
                 extras.putString(DownloadRedditVideoService.EXTRA_VIDEO_URL, viewVideoViewModel.getVideoDownloadUrl());
@@ -1674,6 +1676,7 @@ public class ViewVideoActivity extends AppCompatActivity
         extras.putInt(DownloadMediaService.EXTRA_IS_NSFW, viewVideoViewModel.isNSFW() ? 1 : 0);
 
         //TODO: contentEstimatedBytes
+        if (viewVideoViewModel.getId() != null) extras.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, "t3_" + viewVideoViewModel.getId()); // 69 mod
         JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
         ((JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
 

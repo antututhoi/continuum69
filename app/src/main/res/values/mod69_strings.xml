@@ -66,4 +66,16 @@
         <item>box</item>
         <item>percent</item>
     </string-array>
+    <string name="mod69_already_downloaded_title">Already downloaded</string>
+    <string name="mod69_already_downloaded">Skipped: this file is already downloaded. Delete it (button below) to download it again.</string>
+    <string name="mod69_skipped_count">%1$d already downloaded, skipped</string>
+    <string name="mod69_open">Open</string>
+    <string name="mod69_delete_album">Delete album</string>
+    <string name="mod69_settings_title">69 mod</string>
+    <string name="mod69_settings_summary">Download buttons, quality (69-Media Helper), auto votes, remember my place</string>
+    <string name="mod69_category_swipe">Swipe</string>
+    <string name="mod69_comment_swipe">Comment swipe (up-vote / down-vote)</string>
+    <string name="mod69_comment_swipe_summary">Turn it on and pick what each swipe does, like for posts</string>
+    <string name="mod69_download_original">Download in original quality</string>
+    <string name="mod69_download_low">Download in low quality</string>
 </resources>

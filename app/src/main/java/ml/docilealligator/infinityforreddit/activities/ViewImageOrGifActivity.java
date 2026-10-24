@@ -511,6 +511,8 @@ public class ViewImageOrGifActivity extends AppCompatActivity
         extras.putString(DownloadMediaService.EXTRA_FILE_NAME, buildDownloadFileName());
 
         //TODO: contentEstimatedBytes
+        String mod69PostId = getIntent().getStringExtra(EXTRA_POST_ID_KEY); // 69 mod
+        if (mod69PostId != null) extras.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, mod69PostId.startsWith("t3_") ? mod69PostId : "t3_" + mod69PostId);
         JobInfo jobInfo = DownloadMediaService.constructJobInfo(this, 5000000, extras);
         ((JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
 

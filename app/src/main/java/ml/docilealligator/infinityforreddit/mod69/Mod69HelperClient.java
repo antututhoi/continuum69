@@ -147,7 +147,8 @@ public final class Mod69HelperClient {
      * (or still at [input] when nothing needed changing); null means "keep the download as it is".
      */
     @Nullable
-    public static MediaProcessor.Result process(Context context, File input, int declaredType, @Nullable String declaredExt) {
+    public static MediaProcessor.Result process(Context context, File input, int declaredType, @Nullable String declaredExt,
+                                                @Nullable String quality) {
         if (!isInstalled(context)) return null;
         File output = MediaProcessor.newTempFile(context, "out");
         Uri inUri;
@@ -173,6 +174,7 @@ public final class Mod69HelperClient {
             data.putParcelable(HelperContract.KEY_OUT, outUri);
             data.putInt(HelperContract.KEY_TYPE, declaredType);
             data.putString(HelperContract.KEY_EXT, declaredExt);
+            if (quality != null) data.putString(HelperContract.KEY_QUALITY, quality);
             m.setData(data);
             Bundle answer = call(context, m, HelperContract.MSG_RESULT, PROCESS_TIMEOUT_MS);
             if (answer == null || !answer.getBoolean(HelperContract.KEY_OK, false)) {
@@ -194,6 +196,15 @@ public final class Mod69HelperClient {
             r.mediaType = answer.getInt(HelperContract.KEY_TYPE, declaredType);
             r.extension = answer.getString(HelperContract.KEY_EXT, declaredExt != null ? declaredExt : "jpg");
             r.mimeType = answer.getString(HelperContract.KEY_MIME, MediaProcessor.mimeFor(r.extension));
+            r.info = answer.getString(HelperContract.KEY_INFO, "");
+            if (!answer.getBoolean(HelperContract.KEY_FFMPEG, true) && !r.info.contains("FFmpeg")) {
+                r.info = (r.info.isEmpty() ? "" : r.info + "\n") + "FFmpeg not available in 69-Media Helper";
+            }
+            r.suffix = answer.getString(HelperContract.KEY_SUFFIX, "");
+            r.originalSize = answer.getLong(HelperContract.KEY_ORIGINAL_SIZE, -1);
+            r.finalSize = r.file.length();
+            r.width = answer.getInt(HelperContract.KEY_WIDTH, 0);
+            r.height = answer.getInt(HelperContract.KEY_HEIGHT, 0);
             return r;
         } finally {
             context.revokeUriPermission(inUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);

@@ -21,6 +21,9 @@ import ml.docilealligator.infinityforreddit.R;
 public final class Mod69Ui {
     private Mod69Ui() {}
 
+    private static final java.util.WeakHashMap<ActionRow, String> LIVE = new java.util.WeakHashMap<>();
+    private static boolean listening;
+
     /** The row of icon buttons under a post or comment, spread evenly over the full width. */
     public static final class ActionRow {
         public final LinearLayout row;
@@ -37,6 +40,27 @@ public final class Mod69Ui {
             this.hide = hide;
             this.block = block;
             this.iconColor = iconColor;
+        }
+
+        /** Which post/comment this row shows now, so the orange mark can update the moment a download finishes. */
+        public void track(@Nullable String key) {
+            synchronized (LIVE) {
+                if (key == null) LIVE.remove(this); else LIVE.put(this, key);
+                if (!listening) {
+                    listening = true;
+                    Mod69Events.add(() -> {
+                        java.util.List<java.util.Map.Entry<ActionRow, String>> rows;
+                        synchronized (LIVE) {
+                            rows = new java.util.ArrayList<>(LIVE.entrySet());
+                        }
+                        for (java.util.Map.Entry<ActionRow, String> e : rows) {
+                            ActionRow r = e.getKey();
+                            if (r != null) r.setDownloaded(Mod69PostActions.showMark(r.row.getContext())
+                                    && Mod69Hooks.isDownloaded(r.row.getContext(), e.getValue()));
+                        }
+                    });
+                }
+            }
         }
 
         /** Downloaded: orange (Reddit orange) background with a black icon. Otherwise plain. */

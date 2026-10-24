@@ -83,8 +83,49 @@ public final class Mod69PostActions {
                 || (t == Post.GALLERY_TYPE && post.getGallery() != null && !post.getGallery().isEmpty());
     }
 
+    /** "high"/"low" while a long-press "other quality" download is being started (main thread only). */
+    @Nullable private static String sQuality;
+
     private static void schedule(Context c, JobInfo jobInfo) {
+        if (sQuality != null) {
+            // JobInfo hands back its own extras, so the quality travels with this one job
+            jobInfo.getExtras().putString(DownloadMediaService.EXTRA_MOD69_QUALITY, sQuality);
+        }
         ((JobScheduler) c.getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(jobInfo);
+    }
+
+    /** Long-press on Download: pick original or low quality just for this download. */
+    static void showQualityMenu(BaseActivity activity, View anchor, Post post, @Nullable View upvoteButton) {
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(activity, anchor);
+        menu.getMenu().add(0, 1, 0, R.string.mod69_download_original);
+        menu.getMenu().add(0, 2, 1, R.string.mod69_download_low);
+        boolean album = post.getPostType() == Post.GALLERY_TYPE && post.getGallery() != null && post.getGallery().size() > 1;
+        menu.setOnMenuItemClickListener(item -> {
+            String q = item.getItemId() == 1 ? "high" : "low";
+            upvoteOnScreen(activity, post, upvoteButton);
+            if (album) {
+                sQuality = q;
+                try {
+                    Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
+                    schedule(activity, DownloadMediaService.constructGalleryDownloadAllMediaJobInfo(activity, 5000000L * post.getGallery().size(), post));
+                } finally {
+                    sQuality = null;
+                }
+            } else {
+                downloadPostWithQuality(activity, post, 0, q);
+            }
+            return true;
+        });
+        menu.show();
+    }
+
+    public static void downloadPostWithQuality(BaseActivity activity, Post post, int galleryIndex, @Nullable String quality) {
+        sQuality = quality;
+        try {
+            downloadPost(activity, post, galleryIndex);
+        } finally {
+            sQuality = null;
+        }
     }
 
     /** The Download button: one file, or a picker for albums. */
@@ -209,10 +250,12 @@ public final class Mod69PostActions {
             @Override
             public void onVoteThingSuccess() {
                 post.setVoteType(-1);
+                Toast.makeText(activity, "Auto down-vote sent", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onVoteThingFail() {
+                Toast.makeText(activity, "Auto down-vote failed", Toast.LENGTH_SHORT).show();
             }
         }, post.getFullName(), APIUtils.DIR_DOWNVOTE);
     }
@@ -253,16 +296,32 @@ public final class Mod69PostActions {
     /** Sets up the row's buttons for one post. */
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                Post post, int position, View itemView) {
+        bindRow(row, activity, oauthRetrofit, post, position, itemView, null);
+    }
+
+    /** Up-votes with the post's own up-vote button (so the screen shows it) when "up-vote on download" is on. */
+    static void upvoteOnScreen(BaseActivity activity, Post post, @Nullable View upvoteButton) {
+        if (upvoteButton == null || post.getVoteType() == 1) return;
+        if (!prefs(activity).getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)) return;
+        if (Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) return;
+        Mod69Hooks.markUpvotedOnScreen(post.getFullName());
+        upvoteButton.performClick();
+    }
+
+    public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
+                               Post post, int position, View itemView, @Nullable View upvoteButton) {
         if (row == null) return;
         boolean show = showButtons(activity);
         row.row.setVisibility(show ? View.VISIBLE : View.GONE);
         row.download.setVisibility(canDownload(post) ? View.VISIBLE : View.GONE);
         boolean downloaded = showMark(activity) && Mod69Hooks.isDownloaded(activity, post.getFullName());
         row.setDownloaded(downloaded);
+        row.track(post.getFullName());
         boolean album = post.getPostType() == Post.GALLERY_TYPE && post.getGallery() != null && post.getGallery().size() > 1;
         row.select.setVisibility(album ? View.VISIBLE : View.GONE);
         row.select.setOnClickListener(v -> showGallerySelect(activity, post));
         row.download.setOnClickListener(v -> {
+            upvoteOnScreen(activity, post, upvoteButton);
             if (album) {
                 // plain tap on an album downloads all of it; the select icon picks images
                 Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
@@ -270,6 +329,10 @@ public final class Mod69PostActions {
             } else {
                 download(activity, post);
             }
+        });
+        row.download.setOnLongClickListener(v -> {
+            showQualityMenu(activity, v, post, upvoteButton);
+            return true;
         });
         row.hide.setOnClickListener(v -> hide(activity, oauthRetrofit, post, position,
                 () -> Mod69Ui.setCollapsed(itemView, true)));

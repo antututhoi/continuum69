@@ -46,6 +46,20 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
         tools:replace="android:label">
+        <service
+            android:name=".mod69.Mod69BackupService"
+            android:exported="true"
+            android:permission="com.gor69.mediahelper.permission.USE">
+            <intent-filter>
+                <action android:name="com.gor69.mod69.BACKUP" />
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".mod69.Mod69ConfirmDeleteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
             android:name=".activities.SetReminderActivity"
             android:exported="false"

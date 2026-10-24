@@ -57,8 +57,46 @@ public final class Mod69Hooks {
         } else if (post != null) {
             markDownloaded(context, post);
         }
-        if (post != null && comment == null && defaultPrefs.getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)) {
-            vote(oauthRetrofit, currentAccountPrefs, post, APIUtils.DIR_UPVOTE);
+        if (post != null && comment == null && extras.getInt(EXTRA_ALREADY_UPVOTED, 0) == 0 && !UPVOTED_ON_SCREEN.contains(post)
+                && defaultPrefs.getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)) {
+            String result = voteWithResult(oauthRetrofit, currentAccountPrefs, post, APIUtils.DIR_UPVOTE);
+            toast(context, result == null ? "Auto up-vote sent" : "Auto up-vote failed: " + result);
+        }
+    }
+
+    /** Set to 1 on a download job when the post was already up-voted on screen. */
+    public static final String EXTRA_ALREADY_UPVOTED = "M69UV";
+    private static final Set<String> UPVOTED_ON_SCREEN = java.util.Collections.synchronizedSet(new HashSet<>());
+
+    /** The post was up-voted with its on-screen button when its download started, so don't vote again. */
+    public static void markUpvotedOnScreen(String fullName) {
+        UPVOTED_ON_SCREEN.add(fullName);
+    }
+
+    static void toast(Context context, String text) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                android.widget.Toast.makeText(context.getApplicationContext(), text, android.widget.Toast.LENGTH_SHORT).show());
+    }
+
+    /** Sends a vote right away (call from a background thread). Returns null when it worked, otherwise why not. */
+    @Nullable
+    public static String voteWithResult(@Nullable Retrofit oauthRetrofit, @Nullable SharedPreferences currentAccountPrefs,
+                                        String fullName, String dir) {
+        if (oauthRetrofit == null || currentAccountPrefs == null) return "not ready";
+        String account = currentAccountPrefs.getString(SharedPreferencesUtils.ACCOUNT_NAME, Account.ANONYMOUS_ACCOUNT);
+        String token = currentAccountPrefs.getString(SharedPreferencesUtils.ACCESS_TOKEN, null);
+        if (token == null || Account.ANONYMOUS_ACCOUNT.equals(account)) return "not logged in";
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put(APIUtils.DIR_KEY, dir);
+            params.put(APIUtils.ID_KEY, fullName);
+            params.put(APIUtils.RANK_KEY, APIUtils.RANK);
+            retrofit2.Response<String> r = oauthRetrofit.create(RedditAPI.class)
+                    .voteThing(APIUtils.getOAuthHeader(token), params).execute();
+            return r.isSuccessful() ? null : "HTTP " + r.code();
+        } catch (Exception e) {
+            Log.w(TAG, "vote failed", e);
+            return e.getClass().getSimpleName();
         }
     }
 
@@ -111,5 +149,80 @@ public final class Mod69Hooks {
 
     private static long toLong(Object o) {
         return o instanceof Long ? (Long) o : 0L;
+    }
+
+    // ---------- saved files (to skip re-downloads and to delete them again) ----------
+
+    private static final String FILES_FILE = "mod69_downloaded_files";
+
+    /** The post/comment a download job belongs to ("t3_..." or "t1_..."), or null. */
+    @Nullable
+    public static String markKey(PersistableBundle extras) {
+        String post = extras.getString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, null);
+        String comment = extras.getString(DownloadMediaService.EXTRA_MOD69_COMMENT_ID, null);
+        if (post == null) post = extras.getString(DownloadMediaService.EXTRA_POST_ID, null);
+        if (comment == null) comment = extras.getString(DownloadMediaService.EXTRA_COMMENT_ID, null);
+        if (comment != null) return comment.startsWith("t1_") ? comment : "t1_" + comment;
+        if (post != null) return post.startsWith("t3_") ? post : "t3_" + post;
+        return null;
+    }
+
+    private static SharedPreferences files(Context c) {
+        return c.getApplicationContext().getSharedPreferences(FILES_FILE, Context.MODE_PRIVATE);
+    }
+
+    /** Remembers where a downloaded file was saved. [name] is the name the app first gave it. */
+    public static void recordFile(Context c, @Nullable String key, String name, android.net.Uri saved) {
+        if (key == null || saved == null) return;
+        files(c).edit().putString(key + "|" + name, saved.toString()).apply();
+    }
+
+    /** The earlier saved copy of this file, if it is still there. */
+    @Nullable
+    public static android.net.Uri existingFile(Context c, @Nullable String key, String name) {
+        if (key == null) return null;
+        String u = files(c).getString(key + "|" + name, null);
+        if (u == null) return null;
+        android.net.Uri uri = android.net.Uri.parse(u);
+        if (exists(c, uri)) return uri;
+        files(c).edit().remove(key + "|" + name).apply();
+        return null;
+    }
+
+    public static boolean exists(Context c, android.net.Uri uri) {
+        try {
+            if ("file".equals(uri.getScheme()) || uri.getScheme() == null) {
+                return new java.io.File(uri.getPath() == null ? uri.toString() : uri.getPath()).exists();
+            }
+            try (android.os.ParcelFileDescriptor fd = c.getContentResolver().openFileDescriptor(uri, "r")) {
+                return fd != null;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** After a file was deleted: forget it, and clear the downloaded mark when none of that post's files are left. */
+    public static void forgetFile(Context c, android.net.Uri uri) {
+        SharedPreferences f = files(c);
+        String target = uri.toString();
+        Set<String> keysTouched = new HashSet<>();
+        SharedPreferences.Editor e = f.edit();
+        for (Map.Entry<String, ?> en : f.getAll().entrySet()) {
+            if (target.equals(en.getValue())) {
+                e.remove(en.getKey());
+                int bar = en.getKey().indexOf('|');
+                if (bar > 0) keysTouched.add(en.getKey().substring(0, bar));
+            }
+        }
+        e.commit();
+        for (String key : keysTouched) {
+            boolean anyLeft = false;
+            for (String k : f.getAll().keySet()) if (k.startsWith(key + "|")) { anyLeft = true; break; }
+            if (!anyLeft) {
+                marks(c).edit().remove(key).commit();
+                Mod69Events.notifyMarksChanged();
+            }
+        }
     }
 }

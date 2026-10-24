@@ -317,6 +317,7 @@ public final class Mod69Comments {
         row.block.setContentDescription(activity.getString(R.string.mod69_block_user_short));
         row.select.setVisibility(View.GONE);
         row.setDownloaded(downloaded);
+        row.track("t1_" + comment.getId());
         row.download.setOnClickListener(v -> download(activity, post, comment, null));
         row.hide.setOnClickListener(v -> new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.mod69_hide_user)

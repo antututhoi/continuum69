@@ -127,6 +127,12 @@
         app:fragment="ml.docilealligator.infinityforreddit.settings.DownloadLocationPreferenceFragment" />
 
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceWithBackground
+        app:title="@string/mod69_settings_title"
+        app:summary="@string/mod69_settings_summary"
+        android:icon="@drawable/ic_download_day_night_24dp"
+        app:fragment="ml.docilealligator.infinityforreddit.mod69.Mod69PreferenceFragment" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceWithBackground
         app:icon="@drawable/ic_smartphone_day_night_24dp"
         app:title="@string/settings_device_title"
         app:summary="@string/settings_device_summary"

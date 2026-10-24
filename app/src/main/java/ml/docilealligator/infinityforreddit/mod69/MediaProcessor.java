@@ -38,6 +38,30 @@ public final class MediaProcessor {
         public String mimeType;
         public int mediaType;
         @Nullable public Bitmap thumbnail;
+        /** What the helper did, for the notification ("" if nothing to say). */
+        public String info = "";
+        /** "_lo", "_480p" or "" - added to the file name for low quality copies. */
+        public String suffix = "";
+        public long originalSize = -1;
+        public long finalSize = -1;
+        public int width;
+        public int height;
+    }
+
+
+    static String size(long bytes) {
+        if (bytes < 0) return "?";
+        if (bytes >= 1024 * 1024) return String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576.0);
+        return String.format(java.util.Locale.US, "%d KB", Math.max(1, bytes / 1024));
+    }
+
+    /** Text for the finished-download notification: quality, size, dimensions and what was converted. */
+    public static String notificationInfo(Result r) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(r.extension.toUpperCase()).append(" · ").append(size(r.finalSize >= 0 ? r.finalSize : r.file.length()));
+        if (r.width > 0 && r.height > 0) sb.append(" · ").append(r.width).append('x').append(r.height);
+        if (r.info != null && !r.info.isEmpty()) sb.append('\n').append(r.info);
+        return sb.toString();
     }
 
     private MediaProcessor() {}
@@ -110,7 +134,14 @@ public final class MediaProcessor {
      */
     public static Result process(Context context, SharedPreferences prefs, File input,
                                  int declaredType, @Nullable String declaredExt) {
-        Result r = Mod69HelperClient.process(context, input, declaredType, declaredExt);
+        return process(context, prefs, input, declaredType, declaredExt, null);
+    }
+
+    /** @param quality "high" or "low" for this file only (the "other quality" download), or null for the helper's setting. */
+    public static Result process(Context context, SharedPreferences prefs, File input,
+                                 int declaredType, @Nullable String declaredExt, @Nullable String quality) {
+        long originalSize = input.length();
+        Result r = Mod69HelperClient.process(context, input, declaredType, declaredExt, quality);
         if (r == null) {
             r = new Result();
             String real = sniff(input);
@@ -122,11 +153,50 @@ public final class MediaProcessor {
             r.extension = real;
             r.mediaType = typeFor(real);
             r.mimeType = mimeFor(real);
+            r.originalSize = originalSize;
+            r.finalSize = input.length();
+            r.info = Mod69HelperClient.isInstalled(context)
+                    ? "69-Media Helper did not answer: nothing converted"
+                    : "69-Media Helper not installed: nothing converted";
+            int[] wh = dimensions(input, r.mediaType);
+            if (wh != null) { r.width = wh[0]; r.height = wh[1]; }
         }
         if (prefs.getBoolean(Mod69Prefs.NOTIFICATION_THUMBNAIL, true)) {
             r.thumbnail = makeThumbnail(r.file, r.mediaType);
         }
         return r;
+    }
+
+    @Nullable
+    static int[] dimensions(File f, int mediaType) {
+        if (mediaType == TYPE_VIDEO) {
+            MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+            try {
+                mmr.setDataSource(f.getAbsolutePath());
+                int w = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                int h = Integer.parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+                String rot = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                return ("90".equals(rot) || "270".equals(rot)) ? new int[]{h, w} : new int[]{w, h};
+            } catch (Exception e) {
+                return null;
+            } finally {
+                try { mmr.release(); } catch (Exception ignored) {}
+            }
+        }
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+        return o.outWidth > 0 ? new int[]{o.outWidth, o.outHeight} : null;
+    }
+
+    /** Adds "_lo" / "_480p" before the extension. */
+    public static String withSuffix(String fileName, @Nullable String suffix) {
+        if (suffix == null || suffix.isEmpty()) return fileName;
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String ext = dot > 0 ? fileName.substring(dot) : "";
+        if (base.endsWith(suffix)) return fileName;
+        return base + suffix + ext;
     }
 
     private static long durationMs(File f) {
