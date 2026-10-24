@@ -32,6 +32,10 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import java.io.File;
+
+import ml.docilealligator.infinityforreddit.mod69.MediaProcessor;
+import ml.docilealligator.infinityforreddit.mod69.Mod69Download;
+import ml.docilealligator.infinityforreddit.mod69.Mod69Hooks;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,6 +92,12 @@ public class DownloadMediaService extends JobService {
     public static final String EXTRA_IMAGE_HOST = "EIH";
     public static final String EXTRA_IMAGE_HOST_PAGE_URL = "EIHPU";
     public static final String EXTRA_IS_ALL_GALLERY_MEDIA = "EIAGM";
+    /** 69 mod extras */
+    public static final String EXTRA_MOD69_PREVIEW_URL = "M69PU";
+    public static final String EXTRA_MOD69_POST_FULLNAME = "M69PF";
+    public static final String EXTRA_MOD69_COMMENT_ID = "M69CI";
+    /** 1 = always save into the subreddit's own folder (used for comment media). */
+    public static final String EXTRA_MOD69_FORCE_SUBFOLDER = "M69FS";
     // When set, the media is written to the cache and shared instead of being saved to the
     // user's download folder.
     public static final String EXTRA_IS_SHARE = "EIS";
@@ -139,6 +149,12 @@ public class DownloadMediaService extends JobService {
     @Inject
     Executor mExecutor;
     private NotificationManagerCompat notificationManager;
+    /** 69 mod: notification thumbnails and "only a preview could be saved" warnings. */
+    private final java.util.Map<Integer, android.graphics.Bitmap> mThumbnails = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Set<Integer> mPreviewOnlyNotifications = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    @Inject
+    @Named("oauth")
+    Retrofit mOauthRetrofit;
 
     public DownloadMediaService() {
     }
@@ -235,12 +251,15 @@ public class DownloadMediaService extends JobService {
                 url = media.hasFallback() ? media.fallbackUrl : media.url; // Retrieve original instead of the one additionally compressed by reddit
                 currentMediaType = media.mediaType == Post.Gallery.TYPE_GIF ? EXTRA_MEDIA_TYPE_GIF : EXTRA_MEDIA_TYPE_IMAGE;
                 extras.putString(EXTRA_URL, url);
+                if (media.hasFallback()) extras.putString(EXTRA_MOD69_PREVIEW_URL, media.url);
                 extras.putInt(EXTRA_MEDIA_TYPE, currentMediaType);
             }
 
             extras.putString(EXTRA_SUBREDDIT_NAME, post.getSubredditName());
             extras.putInt(EXTRA_IS_NSFW, post.isNSFW() ? 1 : 0);
         }
+
+        Mod69Hooks.tagExtras(extras, post);
 
         // Construct the filename using the shared naming scheme so downloads and shares match.
         extras.putString(EXTRA_FILE_NAME, MediaFileNameUtils.getDownloadFileName(post, galleryIndex));
@@ -311,6 +330,8 @@ public class DownloadMediaService extends JobService {
             extras.putString(EXTRA_ALL_GALLERY_IMAGE_FILE_NAMES, concatFileNamesBuilder.toString());
             extras.putInt(EXTRA_IS_ALL_GALLERY_MEDIA, 1);
         }
+
+        Mod69Hooks.tagExtras(extras, post);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             return new JobInfo.Builder(JOB_ID++, new ComponentName(context, DownloadMediaService.class))
@@ -447,6 +468,26 @@ public class DownloadMediaService extends JobService {
         }
     }
 
+    /** 69 mod: download only the chosen images of an album. */
+    public static JobInfo constructGallerySelectedMediaJobInfo(Context context, long contentEstimatedBytes, Post post,
+                                                               List<Integer> indices) {
+        PersistableBundle all = constructGalleryDownloadAllMediaJobInfo(context, contentEstimatedBytes, post).getExtras();
+        PersistableBundle extras = new PersistableBundle(all);
+        String[] urls = all.getString(EXTRA_ALL_GALLERY_IMAGE_URLS, "").split(" ");
+        String[] types = all.getString(EXTRA_ALL_GALLERY_IMAGE_MEDIA_TYPES, "").split(" ");
+        String[] names = all.getString(EXTRA_ALL_GALLERY_IMAGE_FILE_NAMES, "").split(" ");
+        StringBuilder u = new StringBuilder(), t = new StringBuilder(), n = new StringBuilder();
+        for (int i : indices) {
+            if (i < 0 || i >= urls.length || i >= types.length || i >= names.length) continue;
+            if (u.length() > 0) { u.append(' '); t.append(' '); n.append(' '); }
+            u.append(urls[i]); t.append(types[i]); n.append(names[i]);
+        }
+        extras.putString(EXTRA_ALL_GALLERY_IMAGE_URLS, u.toString());
+        extras.putString(EXTRA_ALL_GALLERY_IMAGE_MEDIA_TYPES, t.toString());
+        extras.putString(EXTRA_ALL_GALLERY_IMAGE_FILE_NAMES, n.toString());
+        return constructJobInfo(context, contentEstimatedBytes, extras);
+    }
+
     public static JobInfo constructJobInfo(Context context, long contentEstimatedBytes, PersistableBundle extras) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             return new JobInfo.Builder(JOB_ID++, new ComponentName(context, DownloadMediaService.class))
@@ -467,6 +508,7 @@ public class DownloadMediaService extends JobService {
     public void onCreate() {
         ((Infinity) getApplication()).getAppComponent().inject(this);
         notificationManager = NotificationManagerCompat.from(this);
+        MediaProcessor.cleanOld(this);
     }
 
     @Override
@@ -763,7 +805,8 @@ public class DownloadMediaService extends JobService {
         // twice while the other never left 0%.
         Retrofit downloadRetrofit = retrofit.newBuilder().client(client).build();
 
-        boolean separateDownloadFolder = mSharedPreferences.getBoolean(SharedPreferencesUtils.SEPARATE_FOLDER_FOR_EACH_SUBREDDIT, false);
+        boolean separateDownloadFolder = mSharedPreferences.getBoolean(SharedPreferencesUtils.SEPARATE_FOLDER_FOR_EACH_SUBREDDIT, false)
+                || intent.getInt(EXTRA_MOD69_FORCE_SUBFOLDER, 0) == 1;
         boolean isShare = intent.getInt(EXTRA_IS_SHARE, 0) == 1;
 
         // A video whose URL carried an image extension, or none this maps, is saved as an mp4
@@ -850,7 +893,9 @@ public class DownloadMediaService extends JobService {
         String destinationFileUriString;
         boolean isDefaultDestination;
         try {
-            Response<ResponseBody> response = downloadRetrofit.create(DownloadFile.class).downloadFile(fileUrl).execute();
+            // 69 mod: the full-size original first, retried on shaky connections, then the given URL/preview
+            Response<ResponseBody> response = mod69Execute(downloadRetrofit, fileUrl,
+                    intent.getString(EXTRA_MOD69_PREVIEW_URL, null), randomNotificationIdOffset);
             // OkHttp keeps the connection checked out until the body is read to its end or closed,
             // and most of the paths below leave it part-read or untouched, so close it on the way
             // out however this method returns.
@@ -880,10 +925,38 @@ public class DownloadMediaService extends JobService {
                     }
                 }
 
+                // 69 mod: save to a temp file and let 69 Media Helper check/convert it (real format,
+                // quality, GIF to MP4, cover picture); then the result is saved as before.
+                File mod69Temp = MediaProcessor.newTempFile(this, "download");
+                try (InputStream mod69In = responseBody.byteStream();
+                     OutputStream mod69Out = new FileOutputStream(mod69Temp)) {
+                    byte[] mod69Buf = new byte[65536];
+                    int mod69N;
+                    while ((mod69N = mod69In.read(mod69Buf)) > 0) mod69Out.write(mod69Buf, 0, mod69N);
+                }
+                String mod69DeclaredExt = null;
+                int mod69Dot = fileName.lastIndexOf('.');
+                if (mod69Dot > 0) mod69DeclaredExt = fileName.substring(mod69Dot + 1).toLowerCase(java.util.Locale.ROOT);
+                MediaProcessor.Result mod69 = MediaProcessor.process(this, mSharedPreferences, mod69Temp, mediaType, mod69DeclaredExt);
+                if (!mod69.extension.equalsIgnoreCase(mod69DeclaredExt == null ? "" : mod69DeclaredExt)) {
+                    fileName = replaceExtension(fileName, mod69.extension);
+                    mimeType = mod69.mimeType;
+                    String mod69Doc = DocumentTreeUtils.mimeTypeMatchingExtension(fileName);
+                    documentMimeType = mod69Doc != null ? mod69Doc : mod69.mimeType;
+                    if (!multipleDownloads) {
+                        builder.setContentTitle(fileName);
+                    }
+                }
+                int mod69SavedType = mod69.mediaType;
+                if (mod69.thumbnail != null) {
+                    mThumbnails.put(randomNotificationIdOffset, mod69.thumbnail);
+                }
+                ResponseBody mod69Body = ResponseBody.create(okio.Okio.buffer(okio.Okio.source(mod69.file)), null, mod69.file.length());
+                try {
                 if (isShare) {
                     // Share-only: write to the cache and hand the file to the requesting activity.
                     return shareMediaFromCache(params, builder, mediaType, randomNotificationIdOffset,
-                            responseBody, fileName, mimeType);
+                            mod69Body, fileName, mimeType);
                 }
 
                 if (destinationDirUri == null && subredditDirParentUri != null && subredditDirName != null) {
@@ -906,14 +979,15 @@ public class DownloadMediaService extends JobService {
                     Log.w("ImgurDownload", "Falling back to the default download location.");
                     showReselectDownloadFolderToast(multipleDownloads);
                     isDefaultDestination = true;
-                    destinationFileUriString = getDefaultDownloadPath(mediaType,
+                    destinationFileUriString = getDefaultDownloadPath(mod69SavedType,
                             separateDownloadFolder ? subredditName : null, fileName);
                 }
 
                 try {
-                    Uri destinationFileUri = writeResponseBodyToDisk(responseBody, isDefaultDestination,
-                            destinationFileUriString, fileName, mediaType);
+                    Uri destinationFileUri = writeResponseBodyToDisk(mod69Body, isDefaultDestination,
+                            destinationFileUriString, fileName, mod69SavedType);
                     Log.d("ImgurDownload", "File written successfully");
+                    Mod69Hooks.onMediaDownloaded(this, intent, mOauthRetrofit, mCurrentAccountSharedPreferences, mSharedPreferences);
                     downloadFinished(params, builder, mediaType, randomNotificationIdOffset,
                             mimeType, destinationFileUri, NO_ERROR, multipleDownloads);
                     return true;
@@ -925,6 +999,11 @@ public class DownloadMediaService extends JobService {
 
                     return false;
                 }
+                } finally {
+                    mod69Body.close();
+                    //noinspection ResultOfMethodCallIgnored
+                    mod69.file.delete();
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -933,6 +1012,51 @@ public class DownloadMediaService extends JobService {
                     ERROR_FILE_CANNOT_DOWNLOAD, multipleDownloads);
             return false;
         }
+    }
+
+    /**
+     * 69 mod: asks for the full-size original first (preview.redd.it to i.redd.it), retrying up to 3 times,
+     * then the given URL, then the preview. Notes when only a preview could be saved.
+     */
+    private Response<ResponseBody> mod69Execute(Retrofit downloadRetrofit, String fileUrl, @Nullable String previewUrl,
+                                                int randomNotificationIdOffset) throws IOException {
+        DownloadFile api = downloadRetrofit.create(DownloadFile.class);
+        java.util.LinkedHashSet<String> urls = new java.util.LinkedHashSet<>();
+        String original = Mod69Download.toOriginal(fileUrl);
+        if (original != null) urls.add(original);
+        urls.add(fileUrl);
+        if (previewUrl != null) urls.add(previewUrl);
+        IOException lastError = null;
+        Response<ResponseBody> lastResponse = null;
+        for (String url : urls) {
+            for (int attempt = 0; attempt < 3; attempt++) {
+                if (attempt > 0) {
+                    try {
+                        Thread.sleep(1500L * attempt);
+                    } catch (InterruptedException e) {
+                        throw new IOException("interrupted", e);
+                    }
+                }
+                try {
+                    Response<ResponseBody> r = api.downloadFile(url).execute();
+                    if (r.isSuccessful() && r.body() != null) {
+                        if (lastResponse != null && lastResponse.body() != null) lastResponse.body().close();
+                        if (Mod69Download.isPreview(url) || (previewUrl != null && url.equals(previewUrl))) {
+                            mPreviewOnlyNotifications.add(randomNotificationIdOffset);
+                        }
+                        return r;
+                    }
+                    if (lastResponse != null && lastResponse.body() != null) lastResponse.body().close();
+                    lastResponse = r;
+                    int code = r.code();
+                    if (code >= 400 && code < 500 && code != 408 && code != 429) break;
+                } catch (IOException e) {
+                    lastError = e;
+                }
+            }
+        }
+        if (lastResponse != null) return lastResponse;
+        throw lastError != null ? lastError : new IOException("download failed");
     }
 
     private Notification createNotification(NotificationCompat.Builder builder, @Nullable String fileName) {
@@ -951,8 +1075,22 @@ public class DownloadMediaService extends JobService {
             }
 
             if (contentStringResId != 0) {
-                builder.setContentText(getString(contentStringResId));
-                builder.setStyle(new NotificationCompat.BigTextStyle().bigText(getString(contentStringResId)));
+                String text = getString(contentStringResId);
+                if (mPreviewOnlyNotifications.contains(randomNotificationIdOffset)
+                        && (contentStringResId == R.string.downloading_media_finished
+                        || contentStringResId == R.string.download_gallery_failed_some_images)) {
+                    text = text + "\n" + getString(R.string.mod69_saved_preview_only);
+                }
+                builder.setContentText(text);
+                builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));
+                android.graphics.Bitmap mod69Thumb = mThumbnails.get(randomNotificationIdOffset);
+                if (mod69Thumb != null && progress < 0) {
+                    builder.setLargeIcon(mod69Thumb);
+                    builder.setStyle(new NotificationCompat.BigPictureStyle()
+                            .bigPicture(mod69Thumb)
+                            .bigLargeIcon((android.graphics.Bitmap) null)
+                            .setSummaryText(text));
+                }
             }
 
             if (mediaUri != null) {

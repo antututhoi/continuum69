@@ -78,6 +78,8 @@ import java.util.function.Supplier;
 import javax.inject.Provider;
 import jp.wasabeef.glide.transformations.BlurTransformation;
 import jp.wasabeef.glide.transformations.RoundedCornersTransformation;
+import ml.docilealligator.infinityforreddit.mod69.Mod69PostActions;
+import ml.docilealligator.infinityforreddit.mod69.Mod69Ui;
 import ml.docilealligator.infinityforreddit.FetchVideoLinkListener;
 import ml.docilealligator.infinityforreddit.PostGalleryGridLayoutItemDecoration;
 import ml.docilealligator.infinityforreddit.R;
@@ -833,6 +835,12 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
             }
 
             ((PostViewHolder) holder).post = post;
+
+            // 69 mod: Download / Hide / Block buttons, downloaded mark, fold away hidden/blocked posts
+            View mod69Anchor = ((PostViewHolder) holder).shareButton != null
+                    ? ((PostViewHolder) holder).shareButton : ((PostViewHolder) holder).upvoteButton;
+            Mod69PostActions.bindRow(Mod69Ui.attachRow(mod69Anchor, mPostIconAndInfoColor),
+                    mActivity, mOauthRetrofit, post, position, holder.itemView);
 
             if (mHandleReadPost && post.isRead()) {
                 ((PostViewHolder) holder).setItemViewBackgroundColor(true);

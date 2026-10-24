@@ -495,6 +495,7 @@ public class PostOptionsBottomSheetFragment extends LandscapeExpandedRoundedBott
                             @Override
                             public void success() {
                                 mPost.setHidden(true);
+                                ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.autoDownvoteOnHide(mBaseActivity, mOauthRetrofit, mPost);
                                 Toast.makeText(mBaseActivity, R.string.post_hide_success, Toast.LENGTH_SHORT).show();
                                 EventBus.getDefault().post(new PostUpdateEventToPostList(mPost, getArguments().getInt(EXTRA_POST_LIST_POSITION, 0)));
                                 EventBus.getDefault().post(new PostUpdateEventToPostDetailFragment(mPost));

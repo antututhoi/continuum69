@@ -1,4 +1,5 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreference
         app:key="image_download_location"
         app:title="@string/settings_image_download_location_title" />
@@ -27,4 +28,46 @@
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreference
         app:key="nsfw_download_location"
         app:title="@string/settings_nsfw_download_location_title" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceCategory
+        app:title="@string/mod69_category_downloads" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreference
+        app:key="mod69_open_helper"
+        app:title="@string/mod69_open_helper"
+        app:summary="@string/mod69_open_helper_summary" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_notification_thumbnail"
+        app:title="@string/mod69_notification_thumbnail" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceCategory
+        app:title="@string/mod69_category_actions" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_show_action_buttons"
+        app:title="@string/mod69_show_action_buttons" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_show_downloaded_mark"
+        app:title="@string/mod69_show_downloaded_mark" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="false"
+        app:key="mod69_auto_upvote_on_download"
+        app:title="@string/mod69_auto_upvote_on_download" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="false"
+        app:key="mod69_auto_downvote_on_hide"
+        app:title="@string/mod69_auto_downvote_on_hide" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_save_feed_position"
+        app:title="@string/mod69_save_feed_position"
+        app:summary="@string/mod69_save_feed_position_summary" />
 </PreferenceScreen>

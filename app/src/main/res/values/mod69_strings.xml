@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mod69_category_downloads">69 mod: downloads</string>
+    <string name="mod69_open_helper">Quality and conversions</string>
+    <string name="mod69_open_helper_summary">Opens 69 Media Helper (shared by all your 69 apps): high/low quality, GIF to MP4, video covers</string>
+    <string name="mod69_helper_missing">Install the 69 Media Helper app first</string>
+    <string name="mod69_download_quality">Download quality (all media)</string>
+    <string name="mod69_quality_high">High (original file)</string>
+    <string name="mod69_quality_low">Low (smaller copy)</string>
+    <string name="mod69_low_image_mode">Low quality picture size by</string>
+    <string name="mod69_mode_width">Width</string>
+    <string name="mod69_mode_box">Fit inside a box</string>
+    <string name="mod69_mode_percent">Percent</string>
+    <string name="mod69_low_image_size">Low quality width / box size (px)</string>
+    <string name="mod69_low_image_size_summary">Default 1280. Pictures keep their shape.</string>
+    <string name="mod69_low_image_percent">Low quality percent</string>
+    <string name="mod69_low_image_percent_summary">Default 50 (half size). Used when "Percent" is chosen.</string>
+    <string name="mod69_low_video_height">Low quality video (p)</string>
+    <string name="mod69_low_video_height_summary">Default 480 (480p)</string>
+    <string name="mod69_gif_to_mp4">Convert GIFs to MP4</string>
+    <string name="mod69_gif_to_mp4_summary">Keeps the GIF if the video would not be smaller</string>
+    <string name="mod69_embed_video_cover">Add a cover picture to videos</string>
+    <string name="mod69_embed_video_cover_summary">So thumbnails show when browsing folders (e.g. rclone)</string>
+    <string name="mod69_notification_thumbnail">Show the picture in the download notification</string>
+    <string name="mod69_saved_preview_only">Only a preview (smaller copy) could be saved.</string>
+    <string name="mod69_category_actions">69 mod: buttons and votes</string>
+    <string name="mod69_show_action_buttons">Show Download / Hide / Block buttons</string>
+    <string name="mod69_show_downloaded_mark">Show a mark on downloaded posts and comments</string>
+    <string name="mod69_auto_upvote_on_download">Up-vote a post when downloading it</string>
+    <string name="mod69_auto_downvote_on_hide">Down-vote a post when hiding it</string>
+    <string name="mod69_save_feed_position">Remember my place in feeds</string>
+    <string name="mod69_save_feed_position_summary">Offers to continue from where you stopped scrolling</string>
+    <string name="mod69_download">Download</string>
+    <string name="mod69_hide">Hide</string>
+    <string name="mod69_block">Block</string>
+    <string name="mod69_downloaded">Downloaded</string>
+    <string name="mod69_block_user">Block user</string>
+    <string name="mod69_hide_user_short">Hide user</string>
+    <string name="mod69_block_user_short">Block user</string>
+    <string name="mod69_hide_user">Hide this user\'s comments</string>
+    <string name="mod69_user_blocked">User blocked</string>
+    <string name="mod69_user_hidden">This user\'s comments are now hidden</string>
+    <string name="mod69_select_images">Select images to download</string>
+    <string name="mod69_download_selected">Download selected (%1$d)</string>
+    <string name="mod69_continue_from_saved">Continue from your saved spot</string>
+    <string name="mod69_continue">Continue</string>
+    <string name="mod69_start_top">Start from top</string>
+    <string name="mod69_download_comment_media">Download comment media</string>
+    <string name="mod69_no_media_in_comment">No media in this comment</string>
+
+    <string-array name="mod69_quality_entries">
+        <item>@string/mod69_quality_high</item>
+        <item>@string/mod69_quality_low</item>
+    </string-array>
+    <string-array name="mod69_quality_values" translatable="false">
+        <item>high</item>
+        <item>low</item>
+    </string-array>
+    <string-array name="mod69_mode_entries">
+        <item>@string/mod69_mode_width</item>
+        <item>@string/mod69_mode_box</item>
+        <item>@string/mod69_mode_percent</item>
+    </string-array>
+    <string-array name="mod69_mode_values" translatable="false">
+        <item>width</item>
+        <item>box</item>
+        <item>percent</item>
+    </string-array>
+</resources>

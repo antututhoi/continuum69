@@ -685,6 +685,19 @@ public class PostPagingSource extends ListenableFuturePagingSource<String, Post>
         }
     }
 
+    /** 69 mod: on the first page, start right after the post saved for this feed (if any). */
+    @Nullable
+    private String mod69Key(@NonNull LoadParams<String> loadParams) {
+        if (loadParams.getKey() != null) {
+            return loadParams.getKey();
+        }
+        String name = postType == PostType.MULTIREDDIT ? multiRedditPath : subredditOrUserName;
+        return ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.startAfter(
+                postFeedScrolledPositionSharedPreferences, sharedPreferences,
+                ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.key(accountName, postType, name, query,
+                        postType == PostType.USER ? userWhere : null, sortType));
+    }
+
     private ListenableFuture<LoadResult<String, Post>> loadHomePosts(@NonNull LoadParams<String> loadParams, RedditAPI api) {
         ListenableFuture<Response<String>> bestPost;
         String afterKey;
@@ -694,7 +707,7 @@ public class PostPagingSource extends ListenableFuturePagingSource<String, Post>
                 afterKey = postFeedScrolledPositionSharedPreferences.getString(
                         accountName + SharedPreferencesUtils.FRONT_PAGE_SCROLLED_POSITION_FRONT_PAGE_BASE, null);
             } else {
-                afterKey = null;
+                afterKey = mod69Key(loadParams);
             }
         } else {
             afterKey = loadParams.getKey();
@@ -718,10 +731,10 @@ public class PostPagingSource extends ListenableFuturePagingSource<String, Post>
         String apiName = Constants.apiSubredditName(subredditOrUserName);
         if (accountName.equals(Account.ANONYMOUS_ACCOUNT)) {
             return api.getSubredditBestPostsListenableFuture(apiName, sortType.getType(),
-                    sortType.getTime(), loadParams.getKey(), limit);
+                    sortType.getTime(), mod69Key(loadParams), limit);
         } else {
             return api.getSubredditBestPostsOauthListenableFuture(apiName, sortType.getType(),
-                    sortType.getTime(), loadParams.getKey(), limit,
+                    sortType.getTime(), mod69Key(loadParams), limit,
                     APIUtils.getOAuthHeader(accessToken));
         }
     }
@@ -963,19 +976,19 @@ public class PostPagingSource extends ListenableFuturePagingSource<String, Post>
         ListenableFuture<Response<String>> searchPosts;
         if (subredditOrUserName == null) {
             if (Account.ANONYMOUS_ACCOUNT.equals(accountName)) {
-                searchPosts = api.searchPostsListenableFuture(query, loadParams.getKey(), sortType.getType(), sortType.getTime(),
+                searchPosts = api.searchPostsListenableFuture(query, mod69Key(loadParams), sortType.getType(), sortType.getTime(),
                         trendingSource);
             } else {
-                searchPosts = api.searchPostsOauthListenableFuture(query, loadParams.getKey(), sortType.getType(),
+                searchPosts = api.searchPostsOauthListenableFuture(query, mod69Key(loadParams), sortType.getType(),
                         sortType.getTime(), trendingSource, APIUtils.getOAuthHeader(accessToken));
             }
         } else {
             if (Account.ANONYMOUS_ACCOUNT.equals(accountName)) {
                 searchPosts = api.searchPostsInSpecificSubredditListenableFuture(subredditOrUserName, query,
-                        sortType.getType(), sortType.getTime(), loadParams.getKey());
+                        sortType.getType(), sortType.getTime(), mod69Key(loadParams));
             } else {
                 searchPosts = api.searchPostsInSpecificSubredditOauthListenableFuture(subredditOrUserName, query,
-                        sortType.getType(), sortType.getTime(), loadParams.getKey(),
+                        sortType.getType(), sortType.getTime(), mod69Key(loadParams),
                         APIUtils.getOAuthHeader(accessToken));
             }
         }

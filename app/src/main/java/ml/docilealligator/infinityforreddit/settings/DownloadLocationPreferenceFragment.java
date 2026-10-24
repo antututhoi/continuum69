@@ -53,6 +53,17 @@ public class DownloadLocationPreferenceFragment extends CustomFontPreferenceFrag
         videoDownloadLocationPreference = findPreference(SharedPreferencesUtils.VIDEO_DOWNLOAD_LOCATION);
         nsfwDownloadLocationPreference = findPreference(SharedPreferencesUtils.NSFW_DOWNLOAD_LOCATION);
 
+        // 69 mod: quality and conversion settings live in the 69 Media Helper app
+        androidx.preference.Preference mod69Helper = findPreference("mod69_open_helper");
+        if (mod69Helper != null) {
+            mod69Helper.setOnPreferenceClickListener(preference -> {
+                if (!ml.docilealligator.infinityforreddit.mod69.Mod69HelperClient.openSettings(mActivity)) {
+                    android.widget.Toast.makeText(mActivity, R.string.mod69_helper_missing, android.widget.Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            });
+        }
+
         if (nsfwDownloadLocationPreference != null) {
             String downloadLocation = sharedPreferences.getString(SharedPreferencesUtils.NSFW_DOWNLOAD_LOCATION, "");
             if (!"".equals(downloadLocation)) {

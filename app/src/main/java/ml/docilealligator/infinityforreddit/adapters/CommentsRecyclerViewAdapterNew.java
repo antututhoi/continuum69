@@ -642,6 +642,11 @@ public class CommentsRecyclerViewAdapterNew extends ListAdapter<Comment, Recycle
                 // noinspection NotifyDataSetChanged
                 ((CommentBaseViewHolder) holder).mMarkwonAdapter.notifyDataSetChanged();
 
+                // 69 mod: Download / Hide user / Block user row, downloaded mark, fold hidden users
+                ml.docilealligator.infinityforreddit.mod69.Mod69Comments.bindRow(
+                        ml.docilealligator.infinityforreddit.mod69.Mod69Ui.attachRow(((CommentBaseViewHolder) holder).moreButton, mCommentIconAndInfoColor),
+                        mActivity, mOauthRetrofit, mPost, comment, holder.itemView, this::notifyDataSetChanged);
+
                 if (!mHideTheNumberOfVotes) {
                     String commentText = "";
                     // The header carries the same string as the fully-collapsed row, which a

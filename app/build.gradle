@@ -71,7 +71,8 @@ android {
     compileSdk 37
 
     defaultConfig {
-        applicationId "org.cygnusx1.continuum"
+        // 69 mod: its own app id, so it installs next to the original Continuum
+        applicationId "org.cygnusx1.continuum.mod69"
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments = [eventBusIndex: 'ml.docilealligator.infinityforreddit.EventBusIndex']
@@ -80,8 +81,9 @@ android {
 
         minSdk 24
         targetSdk 36
-        versionCode 231
-        versionName "8.3.3.6"
+        // 69 mod: every GitHub build gets a higher number, so it installs over the previous one
+        versionCode 231 * 1000 + (System.getenv("GITHUB_RUN_NUMBER") ?: "0").toInteger() % 1000
+        versionName "8.3.3.6-69"
         testInstrumentationRunner "com.kaspersky.kaspresso.runner.KaspressoRunner"
         // The fallback must be 22 characters (APIKeysPreferenceFragment.CLIENT_ID_LENGTH) and must
         // not be R.string.default_client_id, or the API Keys dialog leaves its OK button disabled
@@ -103,7 +105,7 @@ android {
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            resValue "string", "app_name", "Continuum"
+            resValue "string", "app_name", "69-Continuum"
         }
         minifiedRelease {
             initWith buildTypes.release
@@ -183,6 +185,9 @@ android {
     }
 
     lint {
+        // 69 mod: do not stop GitHub builds on lint findings
+        checkReleaseBuilds = false
+        abortOnError = false
         baseline = file("lint-baseline.xml")
         disable 'MissingTranslation'
         // Timber is not a dependency of this project and nothing imports it; the check arrives
@@ -198,7 +203,7 @@ android {
         abi {
             enable = true
             reset()
-            include 'armeabi-v7a', 'arm64-v8a'
+            include 'arm64-v8a'
             universalApk = false  // Set to true if you also want a universal APK
         }
     }

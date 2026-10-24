@@ -136,10 +136,8 @@ public class ImageAndGifEntry extends MarkwonAdapter.Entry<ImageAndGifBlock, Ima
                 srcWidth = node.mediaMetadata.downscaled.x;
                 srcHeight = node.mediaMetadata.downscaled.y;
             }
-        } else if ((node.mediaMetadata.isGIF && !canShowGif) || (!node.mediaMetadata.isGIF && !canShowImage)) {
-            showImageAsUrl(holder, node);
-            return;
         } else {
+            // 69 mod: always show the picture itself in comments, not just a text link
             url = node.mediaMetadata.original.url;
             srcWidth = node.mediaMetadata.original.x;
             srcHeight = node.mediaMetadata.original.y;
@@ -367,6 +365,10 @@ public class ImageAndGifEntry extends MarkwonAdapter.Entry<ImageAndGifBlock, Ima
                 }
             };
 
+            // 69 mod: long-press a comment picture for Download / Open / Copy / Share
+            binding.imageViewMarkdownImageAndGifBlock.setOnLongClickListener(view ->
+                    imageAndGifBlock != null
+                            && ml.docilealligator.infinityforreddit.mod69.Mod69Comments.onMediaLongPress(view, imageAndGifBlock.mediaMetadata));
             binding.imageViewMarkdownImageAndGifBlock.setOnClickListener(view -> {
                 if (imageAndGifBlock != null) {
                     onItemClickListener.onItemClick(imageAndGifBlock.mediaMetadata, commentId, postId, postTitle);

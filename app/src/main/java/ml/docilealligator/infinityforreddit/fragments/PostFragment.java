@@ -229,6 +229,7 @@ public class PostFragment extends PostFragmentBase implements FragmentCommunicat
     @Nullable
     private String concatenatedSubredditNames;
     private int maxPosition = -1;
+    private boolean mod69OfferedForThisLoad = false;
     // Resume where I left off. resumeFeedKey is non-null only while the setting is on, and is what
     // makes this feed both readable from and writable to the resume cache; resumeState carries the
     // pending restore handed down in the fragment arguments, and is spent by the first load.
@@ -1374,6 +1375,10 @@ public class PostFragment extends PostFragmentBase implements FragmentCommunicat
             LoadState appendLoadState = combinedLoadStates.getAppend();
 
             binding.swipeRefreshLayoutPostFragment.setRefreshing(refreshLoadState instanceof LoadState.Loading);
+            if (refreshLoadState instanceof LoadState.NotLoading && !mod69OfferedForThisLoad) {
+                mod69OfferedForThisLoad = true;
+                mod69OfferStartFromTop();
+            }
             if (refreshLoadState instanceof LoadState.NotLoading) {
                 if (refreshLoadState.getEndOfPaginationReached() && mAdapter.getItemCount() < 1) {
                     noPostFound();
@@ -1815,7 +1820,53 @@ public class PostFragment extends PostFragmentBase implements FragmentCommunicat
         return captureAnchorInto(out, resumeFeedKey);
     }
 
+    /** 69 mod: key of this feed for "remember my place". */
+    @Nullable
+    private String mod69FeedKey() {
+        String name;
+        switch (postType) {
+            case PostType.SUBREDDIT:
+            case PostType.SEARCH:
+                name = subredditName;
+                break;
+            case PostType.USER:
+                name = username;
+                break;
+            case PostType.MULTIREDDIT:
+                name = multiRedditPath;
+                break;
+            default:
+                name = null;
+        }
+        return ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.key(mActivity.accountName, postType, name, query,
+                postType == PostType.USER ? where : null, sortType);
+    }
+
+    /** 69 mod: when the feed started from the saved spot, offer to start from the top instead. */
+    private void mod69OfferStartFromTop() {
+        String key = mod69FeedKey();
+        if (!ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.hasSaved(mPostFeedScrolledPositionSharedPreferences, mSharedPreferences, key)) {
+            return;
+        }
+        com.google.android.material.snackbar.Snackbar.make(binding.getRoot(),
+                        R.string.mod69_continue_from_saved, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                .setAction(R.string.mod69_start_top, v -> {
+                    ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.clear(mPostFeedScrolledPositionSharedPreferences, key);
+                    maxPosition = -1;
+                    refresh();
+                })
+                .show();
+    }
+
     private void saveCache() {
+        // 69 mod: remember the furthest post reached in this feed
+        if (mAdapter != null && maxPosition >= 0) {
+            Post mod69Furthest = mAdapter.getItemByPosition(maxPosition);
+            if (mod69Furthest != null) {
+                ml.docilealligator.infinityforreddit.mod69.Mod69FeedPosition.save(mPostFeedScrolledPositionSharedPreferences, mSharedPreferences,
+                        mod69FeedKey(), mod69Furthest.getFullName());
+            }
+        }
         if (savePostFeedScrolledPosition && postType == PostType.FRONT_PAGE && sortType != null && sortType.getType() == SortType.Type.BEST && mAdapter != null) {
             Post currentPost = mAdapter.getItemByPosition(maxPosition);
             if (currentPost != null) {
@@ -1884,6 +1935,8 @@ public class PostFragment extends PostFragmentBase implements FragmentCommunicat
             return;
         }
         saveCache();
+        maxPosition = -1;
+        mod69OfferedForThisLoad = false;
         // Drop any cached Saved-search listing so a refresh while a search is active refetches.
         if (mPostViewModel != null) {
             mPostViewModel.invalidateSavedSearchCache();

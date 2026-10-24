@@ -35,6 +35,10 @@ import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import java.io.File;
+
+import ml.docilealligator.infinityforreddit.mod69.MediaProcessor;
+import ml.docilealligator.infinityforreddit.mod69.Mod69HelperClient;
+import ml.docilealligator.infinityforreddit.mod69.Mod69Hooks;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -96,7 +100,16 @@ public class DownloadRedditVideoService extends JobService {
     CustomThemeWrapper customThemeWrapper;
     @Inject
     Executor executor;
+    @Inject
+    @Named("oauth")
+    Retrofit mOauthRetrofit;
+    @Inject
+    @Named("current_account")
+    SharedPreferences mCurrentAccountSharedPreferences;
     private NotificationManagerCompat notificationManager;
+    /** 69 mod */
+    private final ThreadLocal<PersistableBundle> mJobExtras = new ThreadLocal<>();
+    private final java.util.Map<String, android.graphics.Bitmap> mThumbnails = new java.util.concurrent.ConcurrentHashMap<>();
     // Tried in order after the caller's own URL fails. Reddit only produces renditions up to the
     // source height -- a 640x360 upload has no 480 or 720 -- and the callers pass an optimistic
     // CMAF_1080.mp4 that exists only for >=1080p sources, so the first few entries miss routinely.
@@ -186,6 +199,7 @@ public class DownloadRedditVideoService extends JobService {
         boolean isNsfw = intent.getInt(EXTRA_IS_NSFW, 0) == 1;
 
         executor.execute(() -> {
+            mJobExtras.set(intent);
             final DownloadProgressResponseBody.ProgressListener progressListener = new DownloadProgressResponseBody.ProgressListener() {
                 long time = 0;
 
@@ -220,7 +234,8 @@ public class DownloadRedditVideoService extends JobService {
 
             DownloadFile downloadFileRetrofit = downloadRetrofit.create(DownloadFile.class);
 
-            boolean separateDownloadFolder = sharedPreferences.getBoolean(SharedPreferencesUtils.SEPARATE_FOLDER_FOR_EACH_SUBREDDIT, false);
+            boolean separateDownloadFolder = sharedPreferences.getBoolean(SharedPreferencesUtils.SEPARATE_FOLDER_FOR_EACH_SUBREDDIT, false)
+                    || intent.getInt(DownloadMediaService.EXTRA_MOD69_FORCE_SUBFOLDER, 0) == 1;
 
             File externalCacheDirectory = Utils.getCacheDir(this);
             if (externalCacheDirectory != null) {
@@ -292,7 +307,13 @@ public class DownloadRedditVideoService extends JobService {
                 }
 
                 try {
-                    ResponseBody videoResponse = getVideoResponse(downloadFileRetrofit, videoUrl, -1);
+                    // 69 mod: with low quality on (in 69 Media Helper), ask Reddit for the smaller copy directly
+                    Mod69HelperClient.HelperSettings helperSettings = Mod69HelperClient.settings(this);
+                    ResponseBody videoResponse = helperSettings != null && helperSettings.lowQuality
+                            ? getLowQualityVideoResponse(downloadFileRetrofit, videoUrl, helperSettings.lowVideoHeight) : null;
+                    if (videoResponse == null) {
+                        videoResponse = getVideoResponse(downloadFileRetrofit, videoUrl, -1);
+                    }
                     if (videoResponse != null) {
                         String externalCacheDirectoryPath = externalCacheDirectory.getAbsolutePath() + "/";
 
@@ -491,6 +512,24 @@ public class DownloadRedditVideoService extends JobService {
         jobFinished(params, false);
     }
 
+    /** 69 mod */
+    @Nullable
+    private ResponseBody getLowQualityVideoResponse(DownloadFile downloadFileRetrofit, @NonNull String videoUrl, int h) {
+        int slash = videoUrl.lastIndexOf('/');
+        if (slash < 0) return null;
+        String prefix = videoUrl.substring(0, slash);
+        for (String suffix : new String[]{"/CMAF_" + h + ".mp4", "/DASH_" + h + ".mp4"}) {
+            try {
+                Response<ResponseBody> r = downloadFileRetrofit.downloadFile(prefix + suffix).execute();
+                ResponseBody b = r.body();
+                if (r.isSuccessful() && b != null) return b;
+                if (b != null) b.close();
+            } catch (IOException ignored) {
+            }
+        }
+        return null;
+    }
+
     @Nullable
     private ResponseBody getVideoResponse(DownloadFile downloadFileRetrofit, @NonNull String videoUrl, int videoSuffixIndex) throws IOException {
         if (videoSuffixIndex >= possibleVideoUrlSuffices.length) {
@@ -651,7 +690,31 @@ public class DownloadRedditVideoService extends JobService {
         return true;
     }
 
+    /** 69 mod: let 69 Media Helper check/convert the video (quality, cover picture) before saving it. */
     private Uri copyToDestination(String srcPath, String destinationFileUriString, String destinationFileName, boolean isDefaultDestination) throws IOException {
+        MediaProcessor.Result processed = MediaProcessor.process(this, sharedPreferences, new File(srcPath),
+                MediaProcessor.TYPE_VIDEO, "mp4");
+        try {
+            Uri uri = copyToDestinationRaw(processed.file.getAbsolutePath(), destinationFileUriString,
+                    destinationFileName, isDefaultDestination);
+            if (processed.thumbnail != null) mThumbnails.put(uri.toString(), processed.thumbnail);
+            PersistableBundle extras = mJobExtras.get();
+            if (extras != null) {
+                PersistableBundle tagged = new PersistableBundle(extras);
+                String postId = extras.getString(EXTRA_POST_ID);
+                if (postId != null && tagged.getString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME) == null) {
+                    tagged.putString(DownloadMediaService.EXTRA_MOD69_POST_FULLNAME, "t3_" + postId);
+                }
+                Mod69Hooks.onMediaDownloaded(this, tagged, mOauthRetrofit, mCurrentAccountSharedPreferences, sharedPreferences);
+            }
+            return uri;
+        } finally {
+            //noinspection ResultOfMethodCallIgnored
+            processed.file.delete();
+        }
+    }
+
+    private Uri copyToDestinationRaw(String srcPath, String destinationFileUriString, String destinationFileName, boolean isDefaultDestination) throws IOException {
         ContentResolver contentResolver = getContentResolver();
         if (isDefaultDestination) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -864,6 +927,16 @@ public class DownloadRedditVideoService extends JobService {
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(getString(contentStringResId)));
             }
 
+            if (mediaUri != null) {
+                android.graphics.Bitmap mod69Thumb = mThumbnails.remove(mediaUri.toString());
+                if (mod69Thumb != null) {
+                    builder.setLargeIcon(mod69Thumb);
+                    builder.setStyle(new NotificationCompat.BigPictureStyle()
+                            .bigPicture(mod69Thumb)
+                            .bigLargeIcon((android.graphics.Bitmap) null)
+                            .setSummaryText(contentStringResId != 0 ? getString(contentStringResId) : null));
+                }
+            }
             if (mediaUri != null) {
                 int pendingIntentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;
 

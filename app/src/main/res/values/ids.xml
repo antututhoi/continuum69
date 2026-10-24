@@ -4,4 +4,9 @@
     <item name="slidable_content" type="id" />
     <item name="spoiler_mask_drawable" type="id" />
     <item name="comment_face_reattach_listener" type="id" />
+    <item name="mod69_tag_comment" type="id" />
+    <item name="mod69_tag_post" type="id" />
+    <item name="mod69_action_row" type="id" />
+    <item name="mod69_saved_layout" type="id" />
+    <item name="mod69_tag_post_object" type="id" />
 </resources>
