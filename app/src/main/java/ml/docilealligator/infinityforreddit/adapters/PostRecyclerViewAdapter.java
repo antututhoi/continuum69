@@ -839,7 +839,8 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
             // 69 mod: Download / Hide / Block buttons, downloaded mark, fold away hidden/blocked posts
             View mod69Anchor = ((PostViewHolder) holder).shareButton != null
                     ? ((PostViewHolder) holder).shareButton : ((PostViewHolder) holder).upvoteButton;
-            Mod69PostActions.bindRow(Mod69Ui.attachRow(mod69Anchor, mPrimaryTextColor),
+            // buttons off = the post layout is left completely untouched
+            Mod69PostActions.bindRow(Mod69PostActions.showButtons(mActivity) ? Mod69Ui.attachRow(mod69Anchor, mPrimaryTextColor) : null,
                     mActivity, mOauthRetrofit, post, position, holder.itemView,
                     ((PostViewHolder) holder).upvoteButton);
 
