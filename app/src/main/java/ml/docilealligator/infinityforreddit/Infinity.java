@@ -206,6 +206,7 @@ public class Infinity extends Application implements DefaultLifecycleObserver {
         super.onCreate();
 
         instance = this;
+        ml.docilealligator.infinityforreddit.mod69.Mod69Naming.init(this);
 
         mAppComponent = DaggerAppComponent.factory()
                 .create(this);

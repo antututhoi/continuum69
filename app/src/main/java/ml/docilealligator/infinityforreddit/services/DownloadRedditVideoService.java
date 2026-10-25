@@ -112,6 +112,7 @@ public class DownloadRedditVideoService extends JobService {
     private final java.util.Map<String, android.graphics.Bitmap> mThumbnails = new java.util.concurrent.ConcurrentHashMap<>();
     /** 69 mod: notification details per saved file, and whether Reddit's smaller copy was fetched (for the "_480p" name). */
     private final java.util.Map<String, String> mInfo = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, String> mTitles = new java.util.concurrent.ConcurrentHashMap<>();
     private final ThreadLocal<Integer> mLowFetchedHeight = new ThreadLocal<>();
     // Tried in order after the caller's own URL fails. Reddit only produces renditions up to the
     // source height -- a 640x360 upload has no 480 or 720 -- and the callers pass an optimistic
@@ -730,6 +731,7 @@ public class DownloadRedditVideoService extends JobService {
             String suffix = processed.suffix;
             Integer fetched = mLowFetchedHeight.get();
             if (suffix.isEmpty() && fetched != null) suffix = "_" + fetched + "p";
+            if (suffix.isEmpty()) suffix = MediaProcessor.nameSuffix(processed, sharedPreferences);
             String newName = MediaProcessor.withSuffix(destinationFileName, suffix);
             if (!"mp4".equalsIgnoreCase(processed.extension)) {
                 int dot = newName.lastIndexOf('.');
@@ -747,6 +749,7 @@ public class DownloadRedditVideoService extends JobService {
             }
             if (processed.thumbnail != null) mThumbnails.put(uri.toString(), processed.thumbnail);
             mInfo.put(uri.toString(), MediaProcessor.notificationInfo(processed));
+            mTitles.put(uri.toString(), newName);
             if (extras != null) {
                 PersistableBundle tagged = new PersistableBundle(extras);
                 String postId = extras.getString(EXTRA_POST_ID);
@@ -981,13 +984,10 @@ public class DownloadRedditVideoService extends JobService {
 
             if (mediaUri != null) {
                 android.graphics.Bitmap mod69Thumb = mThumbnails.remove(mediaUri.toString());
-                if (mod69Thumb != null) {
-                    builder.setLargeIcon(mod69Thumb);
-                    builder.setStyle(new NotificationCompat.BigPictureStyle()
-                            .bigPicture(mod69Thumb)
-                            .bigLargeIcon((android.graphics.Bitmap) null)
-                            .setSummaryText(contentStringResId != 0 ? (getString(contentStringResId)
-                                    + (mInfo.containsKey(mediaUri.toString()) ? "\n" + mInfo.get(mediaUri.toString()) : "")) : null));
+                if (progress < 0 && contentStringResId != 0) {
+                    String mod69Info = mInfo.get(mediaUri.toString());
+                    ml.docilealligator.infinityforreddit.mod69.Mod69Notify.apply(this, builder, mTitles.get(mediaUri.toString()),
+                            getString(contentStringResId) + (mod69Info != null && !mod69Info.isEmpty() ? "\n" + mod69Info : ""), mod69Thumb);
                 }
             }
             if (mediaUri != null) {

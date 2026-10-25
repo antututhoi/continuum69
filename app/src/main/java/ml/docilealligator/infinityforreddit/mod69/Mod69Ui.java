@@ -31,10 +31,15 @@ public final class Mod69Ui {
         public final ImageView select;
         public final ImageView hide;
         public final ImageView block;
+        public final ImageView up;
+        public final ImageView down;
         final int iconColor;
 
-        ActionRow(LinearLayout row, ImageView download, ImageView select, ImageView hide, ImageView block, int iconColor) {
+        ActionRow(LinearLayout row, ImageView download, ImageView select, ImageView hide, ImageView block,
+                  ImageView up, ImageView down, int iconColor) {
             this.row = row;
+            this.up = up;
+            this.down = down;
             this.download = download;
             this.select = select;
             this.hide = hide;
@@ -134,10 +139,15 @@ public final class Mod69Ui {
         ImageView select = icon(c, R.drawable.mod69_ic_select, R.string.mod69_select_images, textColor);
         ImageView hide = icon(c, R.drawable.mod69_ic_hide, R.string.mod69_hide, textColor);
         ImageView block = icon(c, R.drawable.mod69_ic_block, R.string.mod69_block, textColor);
+        ImageView up = icon(c, R.drawable.mod69_ic_up, R.string.upvote, textColor);
+        ImageView down = icon(c, R.drawable.mod69_ic_down, R.string.downvote, textColor);
         select.setVisibility(View.GONE);
-        addEven(row, download);
-        addEven(row, select);
+        // hide on the left, votes and download in the middle, block on the right
         addEven(row, hide);
+        addEven(row, select);
+        addEven(row, up);
+        addEven(row, download);
+        addEven(row, down);
         addEven(row, block);
 
         int index = container.indexOfChild(toolbar);
@@ -157,7 +167,7 @@ public final class Mod69Ui {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         container.addView(wrapper, index, lp);
 
-        ActionRow ar = new ActionRow(row, download, select, hide, block, textColor);
+        ActionRow ar = new ActionRow(row, download, select, hide, block, up, down, textColor);
         toolbar.setTag(R.id.mod69_action_row, ar);
         return ar;
     }
@@ -204,5 +214,68 @@ public final class Mod69Ui {
             cur = p instanceof View ? (View) p : null;
         }
         return null;
+    }
+
+    /** Shows a dialog with readable button text in dark themes (the comment icon/info colour). */
+    public static androidx.appcompat.app.AlertDialog show(ml.docilealligator.infinityforreddit.activities.BaseActivity activity,
+                                                         com.google.android.material.dialog.MaterialAlertDialogBuilder builder) {
+        androidx.appcompat.app.AlertDialog d = builder.create();
+        d.show();
+        styleButtons(activity, d);
+        return d;
+    }
+
+    public static void styleButtons(ml.docilealligator.infinityforreddit.activities.BaseActivity activity,
+                                    androidx.appcompat.app.AlertDialog d) {
+        int color;
+        try {
+            color = activity.customThemeWrapper.getCommentIconAndInfoColor();
+        } catch (Exception e) {
+            return;
+        }
+        for (int which : new int[]{android.content.DialogInterface.BUTTON_POSITIVE,
+                android.content.DialogInterface.BUTTON_NEGATIVE, android.content.DialogInterface.BUTTON_NEUTRAL}) {
+            android.widget.Button b = d.getButton(which);
+            if (b != null) b.setTextColor(color);
+        }
+    }
+
+    /**
+     * The row's own up/down-vote buttons: they press the app's real vote buttons (so everything works
+     * the same) and show the vote colour.
+     */
+    public static void bindVotes(ml.docilealligator.infinityforreddit.activities.BaseActivity activity, ActionRow row,
+                                 @Nullable View realUp, @Nullable View realDown, java.util.function.IntSupplier voteType) {
+        boolean show = realUp != null && realDown != null;
+        row.up.setVisibility(show ? View.VISIBLE : View.GONE);
+        row.down.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        // "Hide the app's own vote buttons": the row's buttons still press them, they are just not shown
+        boolean hideOriginal = androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity)
+                .getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true);
+        realUp.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
+        realDown.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
+        Runnable tint = () -> {
+            int v = voteType.getAsInt();
+            int upColor = row.iconColor, downColor = row.iconColor;
+            try {
+                if (v == 1) upColor = activity.customThemeWrapper.getUpvoted();
+                if (v == -1) downColor = activity.customThemeWrapper.getDownvoted();
+            } catch (Exception ignored) {
+            }
+            row.up.setColorFilter(upColor, PorterDuff.Mode.SRC_IN);
+            row.down.setColorFilter(downColor, PorterDuff.Mode.SRC_IN);
+        };
+        tint.run();
+        row.up.setOnClickListener(x -> {
+            realUp.performClick();
+            tint.run();
+            row.up.postDelayed(tint, 1500); // the app saves the vote a moment later
+        });
+        row.down.setOnClickListener(x -> {
+            realDown.performClick();
+            tint.run();
+            row.down.postDelayed(tint, 1500);
+        });
     }
 }

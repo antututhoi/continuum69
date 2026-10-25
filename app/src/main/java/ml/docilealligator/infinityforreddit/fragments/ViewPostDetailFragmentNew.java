@@ -260,6 +260,7 @@ public class ViewPostDetailFragmentNew extends Fragment implements FragmentCommu
     private CommentsFooterRecyclerViewAdapter mCommentsFooterAdapter;
     @SuppressWarnings("NullAway.Init")
     private SwipeActionPainter swipeActionPainter;
+    private final ml.docilealligator.infinityforreddit.mod69.Mod69Swipe mod69Swipe = new ml.docilealligator.infinityforreddit.mod69.Mod69Swipe();
     /**
      * A field, not a local: the enable switch has to be able to attach and detach it, which is
      * exactly what it could not do while it went out of scope with onCreateView.
@@ -551,12 +552,13 @@ public class ViewPostDetailFragmentNew extends Fragment implements FragmentCommu
                 View itemView = viewHolder.itemView;
                 if (isCurrentlyActive) {
                     swipeActionPainter.onDrag(itemView, dX);
+                    mod69Swipe.onActive(swipeActionPainter, viewHolder, dX);
                 }
 
                 float travel = swipeActionPainter.draw(c, itemView, dX);
 
                 if (!isCurrentlyActive) {
-                    int action = swipeActionPainter.consumeAction();
+                    int action = mod69Swipe.onRelease(swipeActionPainter, viewHolder);
                     if (action != SwipeActionLevels.NONE && mCommentsAdapter != null) {
                         mCommentsAdapter.onItemSwipe(viewHolder, action);
                     }

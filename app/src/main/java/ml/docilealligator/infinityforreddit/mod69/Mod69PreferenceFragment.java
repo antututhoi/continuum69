@@ -14,6 +14,11 @@ public class Mod69PreferenceFragment extends CustomFontPreferenceFragmentCompat 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         setPreferencesFromResource(R.xml.mod69_preferences, rootKey);
+        Preference history = findPreference("mod69_split_history");
+        if (history != null) {
+            String h = Mod69Folders.history(requireContext());
+            history.setSummary(h.isEmpty() ? getString(R.string.mod69_split_history_none) : h);
+        }
         Preference helper = findPreference("mod69_open_helper");
         if (helper != null) {
             helper.setOnPreferenceClickListener(p -> {

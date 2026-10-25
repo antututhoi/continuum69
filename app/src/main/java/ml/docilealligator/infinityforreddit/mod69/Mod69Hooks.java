@@ -61,6 +61,10 @@ public final class Mod69Hooks {
                 && defaultPrefs.getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)) {
             String result = voteWithResult(oauthRetrofit, currentAccountPrefs, post, APIUtils.DIR_UPVOTE);
             toast(context, result == null ? "Auto up-vote sent" : "Auto up-vote failed: " + result);
+        } else if (comment != null && defaultPrefs.getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)) {
+            // media saved from a comment: up-vote that comment
+            String result = voteWithResult(oauthRetrofit, currentAccountPrefs, "t1_" + comment, APIUtils.DIR_UPVOTE);
+            toast(context, result == null ? "Auto up-vote (comment) sent" : "Auto up-vote (comment) failed: " + result);
         }
     }
 

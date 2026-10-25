@@ -49,6 +49,10 @@ public final class MediaProcessor {
     }
 
 
+    public static String sizeText(long bytes) {
+        return size(bytes);
+    }
+
     static String size(long bytes) {
         if (bytes < 0) return "?";
         if (bytes >= 1024 * 1024) return String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576.0);
@@ -187,6 +191,20 @@ public final class MediaProcessor {
         o.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(f.getAbsolutePath(), o);
         return o.outWidth > 0 ? new int[]{o.outWidth, o.outHeight} : null;
+    }
+
+    /**
+     * The quality ending for the file name: "_lo" / "_480p" for low quality copies, and with
+     * "Add the quality to file names" on also "_hi" for original pictures and "_720p" (the height) for videos.
+     */
+    public static String nameSuffix(Result r, SharedPreferences prefs) {
+        if (!r.suffix.isEmpty()) return r.suffix;
+        if (!prefs.getBoolean(Mod69Prefs.QUALITY_IN_NAMES, true)) return "";
+        if (r.mediaType == TYPE_VIDEO) {
+            int h = Math.min(r.width, r.height);
+            return h > 0 ? "_" + h + "p" : "";
+        }
+        return "_hi";
     }
 
     /** Adds "_lo" / "_480p" before the extension. */

@@ -250,7 +250,7 @@ public final class Mod69Comments {
                 activity.getString(R.string.copy_link),
                 activity.getString(R.string.share_link)
         };
-        new MaterialAlertDialogBuilder(activity)
+        Mod69Ui.show(activity, new MaterialAlertDialogBuilder(activity)
                 .setItems(items, (d, which) -> {
                     switch (which) {
                         case 0:
@@ -277,8 +277,7 @@ public final class Mod69Comments {
                             }
                             break;
                     }
-                })
-                .show();
+                }));
         return true;
     }
 
@@ -299,6 +298,12 @@ public final class Mod69Comments {
     /** Sets up the row's buttons for one comment, and folds away comments of hidden/blocked users. */
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                @Nullable Post post, Comment comment, View itemView, Runnable refreshList) {
+        bindRow(row, activity, oauthRetrofit, post, comment, itemView, refreshList, null, null);
+    }
+
+    public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
+                               @Nullable Post post, Comment comment, View itemView, Runnable refreshList,
+                               @Nullable View upvoteButton, @Nullable View downvoteButton) {
         itemView.setTag(R.id.mod69_tag_comment, comment);
         itemView.setTag(R.id.mod69_tag_post_object, post);
         boolean collapse = isUserHidden(activity, comment.getAuthor()) || Mod69PostActions.isAuthorBlocked(comment.getAuthor());
@@ -318,22 +323,43 @@ public final class Mod69Comments {
         row.select.setVisibility(View.GONE);
         row.setDownloaded(downloaded);
         row.track("t1_" + comment.getId());
+        Mod69Ui.bindVotes(activity, row, show ? upvoteButton : null, show ? downvoteButton : null, comment::getVoteType);
         row.download.setOnClickListener(v -> download(activity, post, comment, null));
-        row.hide.setOnClickListener(v -> new MaterialAlertDialogBuilder(activity)
+        row.hide.setOnClickListener(v -> Mod69Ui.show(activity, new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.mod69_hide_user)
                 .setMessage("u/" + comment.getAuthor())
                 .setPositiveButton(R.string.mod69_hide, (d, w) -> {
                     hideUser(activity, comment.getAuthor());
+                    autoDownvoteComment(activity, oauthRetrofit, comment);
                     Toast.makeText(activity, R.string.mod69_user_hidden, Toast.LENGTH_SHORT).show();
                     refreshList.run();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
-                .show());
-        row.block.setOnClickListener(v -> Mod69PostActions.blockUser(activity, oauthRetrofit, comment.getAuthor(), refreshList));
+                ));
+        row.block.setOnClickListener(v -> Mod69PostActions.blockUser(activity, oauthRetrofit, comment.getAuthor(), refreshList, refreshList));
     }
 
     /** Names of users whose comments are hidden (for a future settings list). */
     public static Set<String> hiddenUserNames(Context c) {
         return new HashSet<>(hiddenUsers(c).getAll().keySet());
+    }
+
+    /** Down-votes a comment whose user was just hidden, when "Down-vote when hiding" is on. */
+    static void autoDownvoteComment(BaseActivity activity, Retrofit oauthRetrofit, Comment comment) {
+        if (!androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity)
+                .getBoolean(Mod69Prefs.AUTO_DOWNVOTE_ON_HIDE, false)) return;
+        if (ml.docilealligator.infinityforreddit.account.Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) return;
+        ml.docilealligator.infinityforreddit.thing.VoteThing.voteThing(activity, oauthRetrofit, activity.accessToken,
+                new ml.docilealligator.infinityforreddit.thing.VoteThing.VoteThingWithoutPositionListener() {
+                    @Override
+                    public void onVoteThingSuccess() {
+                        Toast.makeText(activity, "Auto down-vote (comment) sent", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onVoteThingFail() {
+                        Toast.makeText(activity, "Auto down-vote (comment) failed", Toast.LENGTH_SHORT).show();
+                    }
+                }, "t1_" + comment.getId(), ml.docilealligator.infinityforreddit.utils.APIUtils.DIR_DOWNVOTE);
     }
 }

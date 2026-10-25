@@ -842,7 +842,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
             // buttons off = the post layout is left completely untouched
             Mod69PostActions.bindRow(Mod69PostActions.showButtons(mActivity) ? Mod69Ui.attachRow(mod69Anchor, mPrimaryTextColor) : null,
                     mActivity, mOauthRetrofit, post, position, holder.itemView,
-                    ((PostViewHolder) holder).upvoteButton);
+                    ((PostViewHolder) holder).upvoteButton, ((PostViewHolder) holder).downvoteButton);
 
             if (mHandleReadPost && post.isRead()) {
                 ((PostViewHolder) holder).setItemViewBackgroundColor(true);
@@ -1065,6 +1065,21 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
 
             if (((PostViewHolder) holder).spoilerTextView != null && post.isSpoiler()) {
                 ((PostViewHolder) holder).spoilerTextView.setVisibility(View.VISIBLE);
+                // 69 mod: one tap on the Spoiler label shows the picture right here
+                if (mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post)) {
+                    ((PostViewHolder) holder).spoilerTextView.setText(R.string.mod69_spoiler_show);
+                    ((PostViewHolder) holder).spoilerTextView.setOnClickListener(v -> {
+                        Post mod69Post = ((PostViewHolder) holder).post;
+                        if (mod69Post == null) return;
+                        Mod69PostActions.reveal(mod69Post);
+                        int p = holder.getBindingAdapterPosition();
+                        if (p >= 0) notifyItemChanged(p);
+                    });
+                } else {
+                    ((PostViewHolder) holder).spoilerTextView.setText(R.string.spoiler);
+                    ((PostViewHolder) holder).spoilerTextView.setOnClickListener(null);
+                    ((PostViewHolder) holder).spoilerTextView.setClickable(false);
+                }
             }
 
             if (((PostViewHolder) holder).flairTextView != null && post.getFlair() != null && !post.getFlair().isEmpty()) {
@@ -1272,7 +1287,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
                         ((PostWithPreviewTypeViewHolder) holder).imageViewNoPreviewGallery.setImageResource(R.drawable.ic_video_day_night_24dp);
                         ((PostWithPreviewTypeViewHolder) holder).videoOrGifIndicator.setVisibility(View.GONE);
                     } else {
-                        if (post.getPostType() == Post.GIF_TYPE && ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler))) {
+                        if (post.getPostType() == Post.GIF_TYPE && ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post)))) {
                             ((PostWithPreviewTypeViewHolder) holder).imageViewNoPreviewGallery.setVisibility(View.VISIBLE);
                             ((PostWithPreviewTypeViewHolder) holder).imageViewNoPreviewGallery.setImageResource(R.drawable.ic_image_day_night_24dp);
                             ((PostWithPreviewTypeViewHolder) holder).videoOrGifIndicator.setVisibility(View.GONE);
@@ -1363,7 +1378,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
                             ((PostBaseGalleryTypeViewHolder) holder).adapter.setMaxPreviewHeight(getMaxPreviewHeight());
                             ((PostBaseGalleryTypeViewHolder) holder).adapter.setRatio(SQUARE_PREVIEW_RATIO);
                         }
-                        boolean blurGallery = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler);
+                        boolean blurGallery = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post));
                         ((PostBaseGalleryTypeViewHolder) holder).adapter.setBlurImage(blurGallery);
                         ((PostBaseGalleryTypeViewHolder) holder).adapter.setAutoplayGif(shouldAutoplayGalleryGif(post, blurGallery));
                         ((PostBaseGalleryTypeViewHolder) holder).adapter.setGalleryImages(post.getGallery());
@@ -1701,7 +1716,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
                             break;
                         }
                         case Post.GIF_TYPE: {
-                            if (post.getPostType() == Post.GIF_TYPE && ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler))) {
+                            if (post.getPostType() == Post.GIF_TYPE && ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post)))) {
                                 ((PostGalleryViewHolder) holder).binding.imageViewNoPreviewItemPostGallery.setVisibility(View.VISIBLE);
                                 ((PostGalleryViewHolder) holder).binding.imageViewNoPreviewItemPostGallery.setImageResource(R.drawable.ic_image_day_night_24dp);
                             } else {
@@ -1829,7 +1844,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
                         ((PostGalleryBaseGalleryTypeViewHolder) holder).adapter.setMaxPreviewHeight(getMaxPreviewHeight());
                             ((PostGalleryBaseGalleryTypeViewHolder) holder).adapter.setRatio(SQUARE_PREVIEW_RATIO);
                     }
-                    boolean blurGallery = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler);
+                    boolean blurGallery = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post));
                     ((PostGalleryBaseGalleryTypeViewHolder) holder).adapter.setBlurImage(blurGallery);
                     ((PostGalleryBaseGalleryTypeViewHolder) holder).adapter.setAutoplayGif(shouldAutoplayGalleryGif(post, blurGallery));
                     ((PostGalleryBaseGalleryTypeViewHolder) holder).adapter.setGalleryImages(post.getGallery());
@@ -2309,7 +2324,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
         boolean blurImage = (post.isNSFW() && mNeedBlurNsfw
                 && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())
                 && !(mAutoplay && mAutoplayNsfwVideos))
-                || (post.isSpoiler() && mNeedBlurSpoiler);
+                || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post));
         return blurImage ? null : mediaView;
     }
 
@@ -2423,7 +2438,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
         return (post.isNSFW() && mNeedBlurNsfw
                 && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())
                 && !(post.getPostType() == Post.GIF_TYPE && mAutoplay && mAutoplayNsfwVideos))
-                || (post.isSpoiler() && mNeedBlurSpoiler);
+                || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post));
     }
 
     private int getTypeColor(int postType) {
@@ -2546,7 +2561,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
             Post post = ((PostGalleryViewHolder) holder).post;
             Post.Preview preview = ((PostGalleryViewHolder) holder).preview;
             if (preview != null) {
-                boolean blurImage = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(post.getPostType() == Post.GIF_TYPE && mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler);
+                boolean blurImage = (post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(post.getPostType() == Post.GIF_TYPE && mAutoplay && mAutoplayNsfwVideos)) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post));
                 // The still, always; updateAnimatedGifs swaps in the animation for the card that is
                 // being autoplayed. The flag follows the load for the same reason as above.
                 ((PostGalleryViewHolder) holder).animatingGif = false;
@@ -2620,7 +2635,7 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
         }
 
         RequestBuilder<Drawable> request = mGlide.load(url).override(mCompactThumbnailBoxSizePx);
-        if ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler)) {
+        if ((post.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (post.isSpoiler() && mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post))) {
             return request.transform(new BlurTransformation(50, 2));
         }
         return request.optionalCenterCrop();

@@ -158,6 +158,7 @@ public abstract class PostFragmentBase extends Fragment {
     protected boolean swipeActionEnabled;
     @SuppressWarnings("NullAway.Init")
     protected SwipeActionPainter swipeActionPainter;
+    protected final ml.docilealligator.infinityforreddit.mod69.Mod69Swipe mod69Swipe = new ml.docilealligator.infinityforreddit.mod69.Mod69Swipe();
     protected AdjustableTouchSlopItemTouchHelper touchHelper;
     private boolean shouldSwipeBack;
     protected final Map<String, String> subredditOrUserIcons = new HashMap<>();
@@ -265,12 +266,13 @@ public abstract class PostFragmentBase extends Fragment {
                 View itemView = viewHolder.itemView;
                 if (isCurrentlyActive) {
                     swipeActionPainter.onDrag(itemView, dX);
+                    mod69Swipe.onActive(swipeActionPainter, viewHolder, dX);
                 }
 
                 float travel = swipeActionPainter.draw(c, itemView, dX);
 
                 if (!isCurrentlyActive) {
-                    int action = swipeActionPainter.consumeAction();
+                    int action = mod69Swipe.onRelease(swipeActionPainter, viewHolder);
                     if (action != SwipeActionLevels.NONE && getPostAdapter() != null) {
                         getPostAdapter().onItemSwipe(viewHolder, action);
                     }

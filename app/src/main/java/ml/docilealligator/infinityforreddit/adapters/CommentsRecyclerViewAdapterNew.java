@@ -645,7 +645,8 @@ public class CommentsRecyclerViewAdapterNew extends ListAdapter<Comment, Recycle
                 // 69 mod: Download / Hide user / Block user row, downloaded mark, fold hidden users
                 ml.docilealligator.infinityforreddit.mod69.Mod69Comments.bindRow(
                         ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.showButtons(mActivity) ? ml.docilealligator.infinityforreddit.mod69.Mod69Ui.attachRow(((CommentBaseViewHolder) holder).moreButton, mPrimaryTextColor) : null,
-                        mActivity, mOauthRetrofit, mPost, comment, holder.itemView, this::notifyDataSetChanged);
+                        mActivity, mOauthRetrofit, mPost, comment, holder.itemView, this::notifyDataSetChanged,
+                        ((CommentBaseViewHolder) holder).upvoteButton, ((CommentBaseViewHolder) holder).downvoteButton);
 
                 if (!mHideTheNumberOfVotes) {
                     String commentText = "";

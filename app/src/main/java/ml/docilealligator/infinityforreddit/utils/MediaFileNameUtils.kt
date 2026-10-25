@@ -193,6 +193,9 @@ object MediaFileNameUtils {
             }
         }
 
+        // 69 mod: the user's own name pattern (same as the Multitool add-on), when one is set
+        ml.docilealligator.infinityforreddit.mod69.Mod69Naming.fileName(post, galleryIndex, url, getExtension(url, mediaType))
+            ?.let { return it }
         val indexSuffix =
             if (post.postType == Post.GALLERY_TYPE && galleryIndex >= 0) "_" + (galleryIndex + 1) else ""
         return sanitizedTitle + indexSuffix + getExtension(url, mediaType)

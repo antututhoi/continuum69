@@ -1594,22 +1594,20 @@ public class ViewVideoActivity extends AppCompatActivity
                 if (post.getPostType() == Post.GIF_TYPE) {
                     String mp4Variant = post.getMp4Variant();
                     if (mp4Variant != null) {
-                        // The post carries both renditions, so ask instead of guessing. Scheduling
-                        // happens in the dialog's callback, hence the early return.
-                        String[] choices = {getString(R.string.download_gif), getString(R.string.download_video)};
-                        final int[] selectedOption = {0};
-                        new MaterialAlertDialogBuilder(this, R.style.MaterialAlertDialogTheme)
-                                .setTitle(R.string.action_download)
-                                .setSingleChoiceItems(choices, 0, (dialog, which) -> selectedOption[0] = which)
-                                .setPositiveButton(R.string.ok, (dialogInterface, i) -> {
-                                    if (selectedOption[0] == 1) {
-                                        downloadGifPostAsVideo(post, mp4Variant);
-                                    } else {
-                                        downloadGifPostAsGif(post);
-                                    }
-                                })
-                                .setNegativeButton(R.string.cancel, null)
-                                .show();
+                        // 69 mod: no question; save whichever of GIF / MP4 is smaller (MP4 if the sizes can't be read)
+                        String gifUrl = post.getVideoUrl();
+                        new Thread(() -> {
+                            long mp4Size = ml.docilealligator.infinityforreddit.mod69.Mod69Download.remoteSize(mp4Variant);
+                            long gifSize = gifUrl == null ? -1 : ml.docilealligator.infinityforreddit.mod69.Mod69Download.remoteSize(gifUrl);
+                            boolean useGif = gifSize > 0 && mp4Size > 0 && gifSize < mp4Size;
+                            runOnUiThread(() -> {
+                                if (useGif) {
+                                    downloadGifPostAsGif(post);
+                                } else {
+                                    downloadGifPostAsVideo(post, mp4Variant);
+                                }
+                            });
+                        }).start();
                         return;
                     }
 

@@ -72,6 +72,17 @@ public final class Mod69PostActions {
         return a != null && blockedAuthors.contains(a.toLowerCase(Locale.ROOT));
     }
 
+    private static final Set<String> revealed = Collections.synchronizedSet(new HashSet<>());
+
+    /** Spoiler pictures the user chose to see un-blurred (until the app closes). */
+    public static boolean isRevealed(Post post) {
+        return post != null && revealed.contains(post.getFullName());
+    }
+
+    public static void reveal(Post post) {
+        revealed.add(post.getFullName());
+    }
+
     public static boolean isAuthorBlocked(@Nullable String author) {
         return author != null && blockedAuthors.contains(author.toLowerCase(Locale.ROOT));
     }
@@ -177,6 +188,7 @@ public final class Mod69PostActions {
             String type = g.mediaType == Post.Gallery.TYPE_VIDEO ? "video" : g.mediaType == Post.Gallery.TYPE_GIF ? "GIF" : "image";
             cb.setText("  " + (i + 1) + " (" + type + ")");
             cb.setChecked(true);
+            cb.setTextColor(activity.customThemeWrapper.getPrimaryTextColor());
             LinearLayout.LayoutParams cblp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
             row.addView(cb, cblp);
             iv.setOnClickListener(v -> cb.toggle());
@@ -215,6 +227,7 @@ public final class Mod69PostActions {
             });
         });
         dialog.show();
+        Mod69Ui.styleButtons(activity, dialog);
     }
 
     /** Hides the post on Reddit, folds it away here, and down-votes it if that option is on. */
@@ -262,41 +275,73 @@ public final class Mod69PostActions {
 
     /** Blocks the post's author (Reddit block) and folds away their posts here. */
     public static void block(BaseActivity activity, Retrofit oauthRetrofit, Post post, @Nullable Runnable onBlocked) {
-        blockUser(activity, oauthRetrofit, post.getAuthor(), onBlocked);
+        block(activity, oauthRetrofit, post, onBlocked, null);
+    }
+
+    public static void block(BaseActivity activity, Retrofit oauthRetrofit, Post post, @Nullable Runnable onBlocked,
+                             @Nullable Runnable onUndo) {
+        blockUser(activity, oauthRetrofit, post.getAuthor(), onBlocked, onUndo);
     }
 
     public static void blockUser(BaseActivity activity, Retrofit oauthRetrofit, @Nullable String author, @Nullable Runnable onBlocked) {
+        blockUser(activity, oauthRetrofit, author, onBlocked, null);
+    }
+
+    /**
+     * Asks, then hides the user's posts/comments at once and shows "Blocked · UNDO" for a few seconds.
+     * The block is only sent to Reddit when that message goes away without Undo, so Undo needs no unblock.
+     */
+    public static void blockUser(BaseActivity activity, Retrofit oauthRetrofit, @Nullable String author, @Nullable Runnable onBlocked,
+                                 @Nullable Runnable onUndo) {
         if (author == null || author.isEmpty() || "[deleted]".equals(author)) return;
-        new MaterialAlertDialogBuilder(activity)
+        Mod69Ui.show(activity, new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.mod69_block_user)
                 .setMessage("u/" + author)
                 .setPositiveButton(R.string.mod69_block, (d, w) -> {
-                    blockedAuthors.add(author.toLowerCase(Locale.ROOT));
+                    String key = author.toLowerCase(Locale.ROOT);
+                    blockedAuthors.add(key);
                     if (onBlocked != null) onBlocked.run();
-                    if (Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) {
-                        Toast.makeText(activity, R.string.mod69_user_blocked, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    BlockUser.blockUser(oauthRetrofit, activity.accessToken, author, new BlockUser.BlockUserListener() {
+                    View root = activity.findViewById(android.R.id.content);
+                    com.google.android.material.snackbar.Snackbar bar = com.google.android.material.snackbar.Snackbar
+                            .make(root, activity.getString(R.string.mod69_blocked_undo, author), 6000)
+                            .setAction(R.string.mod69_undo, v -> {
+                                blockedAuthors.remove(key);
+                                if (onUndo != null) onUndo.run();
+                            });
+                    bar.addCallback(new com.google.android.material.snackbar.BaseTransientBottomBar.BaseCallback<com.google.android.material.snackbar.Snackbar>() {
                         @Override
-                        public void success() {
-                            Toast.makeText(activity, R.string.mod69_user_blocked, Toast.LENGTH_SHORT).show();
-                        }
-
-                        @Override
-                        public void failed() {
-                            Toast.makeText(activity, R.string.block_user_failed, Toast.LENGTH_SHORT).show();
+                        public void onDismissed(com.google.android.material.snackbar.Snackbar transientBottomBar, int event) {
+                            if (event == DISMISS_EVENT_ACTION) return; // undone
+                            sendBlock(activity, oauthRetrofit, author);
                         }
                     });
+                    bar.show();
                 })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .setNegativeButton(android.R.string.cancel, null));
+    }
+
+    private static void sendBlock(BaseActivity activity, Retrofit oauthRetrofit, String author) {
+        if (Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) {
+            Toast.makeText(activity, R.string.mod69_user_blocked, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        BlockUser.blockUser(oauthRetrofit, activity.accessToken, author, new BlockUser.BlockUserListener() {
+            @Override
+            public void success() {
+                Toast.makeText(activity, R.string.mod69_user_blocked, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void failed() {
+                Toast.makeText(activity, R.string.block_user_failed, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /** Sets up the row's buttons for one post. */
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                Post post, int position, View itemView) {
-        bindRow(row, activity, oauthRetrofit, post, position, itemView, null);
+        bindRow(row, activity, oauthRetrofit, post, position, itemView, null, null);
     }
 
     /** Up-votes with the post's own up-vote button (so the screen shows it) when "up-vote on download" is on. */
@@ -309,8 +354,10 @@ public final class Mod69PostActions {
     }
 
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
-                               Post post, int position, View itemView, @Nullable View upvoteButton) {
+                               Post post, int position, View itemView, @Nullable View upvoteButton,
+                               @Nullable View downvoteButton) {
         if (row == null) return;
+        Mod69Ui.bindVotes(activity, row, upvoteButton, downvoteButton, post::getVoteType);
         boolean show = showButtons(activity);
         row.row.setVisibility(show ? View.VISIBLE : View.GONE);
         row.download.setVisibility(canDownload(post) ? View.VISIBLE : View.GONE);
@@ -337,7 +384,7 @@ public final class Mod69PostActions {
         row.hide.setOnClickListener(v -> hide(activity, oauthRetrofit, post, position,
                 () -> Mod69Ui.setCollapsed(itemView, true)));
         row.block.setOnClickListener(v -> block(activity, oauthRetrofit, post,
-                () -> Mod69Ui.setCollapsed(itemView, true)));
+                () -> Mod69Ui.setCollapsed(itemView, true), () -> Mod69Ui.setCollapsed(itemView, false)));
         Mod69Ui.setCollapsed(itemView, shouldCollapse(post));
     }
 

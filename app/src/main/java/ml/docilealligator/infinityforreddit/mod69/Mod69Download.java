@@ -21,6 +21,25 @@ public final class Mod69Download {
 
     private Mod69Download() {}
 
+    /** Size of a file on the web without downloading it (-1 if unknown). Call from a background thread. */
+    public static long remoteSize(@Nullable String url) {
+        if (url == null) return -1;
+        java.net.HttpURLConnection c = null;
+        try {
+            c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+            c.setRequestMethod("HEAD");
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(8000);
+            c.setRequestProperty("User-Agent", ml.docilealligator.infinityforreddit.utils.APIUtils.USER_AGENT);
+            if (c.getResponseCode() / 100 != 2) return -1;
+            return c.getContentLengthLong();
+        } catch (Exception e) {
+            return -1;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
     /** preview.redd.it/abc.jpg?width=640&... -> i.redd.it/abc.jpg (the full-size original). */
     public static String toOriginal(String url) {
         if (url == null) return null;

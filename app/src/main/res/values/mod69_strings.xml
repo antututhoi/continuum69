@@ -78,4 +78,27 @@
     <string name="mod69_comment_swipe_summary">Turn it on and pick what each swipe does, like for posts</string>
     <string name="mod69_download_original">Download in original quality</string>
     <string name="mod69_download_low">Download in low quality</string>
+    <string name="mod69_spoiler_show">Spoiler · tap to show</string>
+    <string name="mod69_spoiler_hide">Spoiler · tap to blur</string>
+    <string name="mod69_split_folder">Split big subreddit folders at (items)</string>
+    <string name="mod69_split_folder_summary">When a subreddit folder has this many items it is renamed to name_yymmdd and a new folder is started. 0 = never.</string>
+    <string name="mod69_blocked_undo">u/%1$s blocked</string>
+    <string name="mod69_undo">Undo</string>
+    <string name="mod69_already_in_folder">Skipped: \"%1$s\" is already in the download folder.</string>
+    <string name="mod69_file_pattern">File name for single files</string>
+    <string name="mod69_category_names">File names (same as Multitool)</string>
+    <string name="mod69_multitool_names">Name files like Multitool</string>
+    <string name="mod69_multitool_names_summary">Same names as on your PC, so the duplicate check works for both. Albums go into a \"Title [id]\" folder. Placeholders: {subreddit} {user} {id} {title} {date} {year} {month} {day} {timestamp} {index} {n} {total} {filename}</string>
+    <string name="mod69_album_file_pattern">File name inside an album folder</string>
+    <string name="mod69_max_title">Longest title used in a name (characters)</string>
+    <string name="mod69_quality_in_names">Add the quality to file names</string>
+    <string name="mod69_quality_in_names_summary">_hi, _lo or _720p (the video height), like Multitool</string>
+    <string name="mod69_category_folders">Folders</string>
+    <string name="mod69_hide_original_votes">Hide the app\'s own vote buttons</string>
+    <string name="mod69_hide_original_votes_summary">The row under each post/comment has up/down-vote buttons in the middle. Turn this off to get the original ones back.</string>
+    <string name="mod69_split_channel">Folder splits</string>
+    <string name="mod69_split_done">Folder split: %1$s</string>
+    <string name="mod69_split_done_text">\"%1$s\" had %2$d files, renamed to \"%3$s\". New files go into a fresh \"%1$s\".</string>
+    <string name="mod69_split_history">Folder split history</string>
+    <string name="mod69_split_history_none">No folder has been split yet</string>
 </resources>

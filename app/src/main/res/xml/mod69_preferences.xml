@@ -9,6 +9,57 @@
         app:title="@string/mod69_open_helper"
         app:summary="@string/mod69_open_helper_summary" />
 
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceCategory
+        app:title="@string/mod69_category_names" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_multitool_names"
+        app:title="@string/mod69_multitool_names"
+        app:summary="@string/mod69_multitool_names_summary" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontEditTextPreference
+        app:defaultValue="{title} [{id}]"
+        app:dependency="mod69_multitool_names"
+        app:key="mod69_file_name_pattern"
+        app:title="@string/mod69_file_pattern"
+        app:useSimpleSummaryProvider="true" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontEditTextPreference
+        app:defaultValue="{index}_{filename}"
+        app:dependency="mod69_multitool_names"
+        app:key="mod69_album_file_pattern"
+        app:title="@string/mod69_album_file_pattern"
+        app:useSimpleSummaryProvider="true" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontEditTextPreference
+        app:defaultValue="80"
+        app:dependency="mod69_multitool_names"
+        app:key="mod69_max_title_length"
+        app:title="@string/mod69_max_title"
+        app:useSimpleSummaryProvider="true" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_quality_in_names"
+        app:title="@string/mod69_quality_in_names"
+        app:summary="@string/mod69_quality_in_names_summary" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceCategory
+        app:title="@string/mod69_category_folders" />
+
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontEditTextPreference
+        app:defaultValue="1000"
+        app:key="mod69_split_folder_at"
+        app:title="@string/mod69_split_folder"
+        app:summary="@string/mod69_split_folder_summary" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreference
+        app:key="mod69_split_history"
+        app:selectable="false"
+        app:title="@string/mod69_split_history" />
+
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
         app:defaultValue="true"
         app:key="mod69_notification_thumbnail"
@@ -21,6 +72,12 @@
         app:defaultValue="true"
         app:key="mod69_show_action_buttons"
         app:title="@string/mod69_show_action_buttons" />
+
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
+        app:defaultValue="true"
+        app:key="mod69_hide_original_votes"
+        app:title="@string/mod69_hide_original_votes"
+        app:summary="@string/mod69_hide_original_votes_summary" />
 
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
         app:defaultValue="true"

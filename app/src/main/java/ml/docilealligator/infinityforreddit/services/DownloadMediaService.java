@@ -156,6 +156,12 @@ public class DownloadMediaService extends JobService {
     private final java.util.Map<Integer, String> mInfo = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<Integer, java.util.ArrayList<String>> mSavedUris = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<Integer, Integer> mSkipped = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Integer, Integer> mAlbumCount = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Integer, Uri> mAlbumDirs = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Integer, String> mTitles = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Folder name for an album download of several pictures. */
+    public static final String EXTRA_MOD69_ALBUM_FOLDER = "M69AF";
+    private final java.util.Map<Integer, Long> mAlbumBytes = new java.util.concurrent.ConcurrentHashMap<>();
     /** "high" or "low": download this one in the other quality. */
     public static final String EXTRA_MOD69_QUALITY = "M69Q";
     @Inject
@@ -316,6 +322,12 @@ public class DownloadMediaService extends JobService {
 
                 // Construct the filename for this gallery item using the shared naming scheme.
                 String finalFileName = MediaFileNameUtils.getDownloadFileName(post, i);
+                if (gallery.size() > 1) {
+                    // 69 mod: files inside the album folder are named like Multitool: {index}_{filename}
+                    String mod69Name = ml.docilealligator.infinityforreddit.mod69.Mod69Naming.albumFileName(post, i, url,
+                            finalFileName.contains(".") ? finalFileName.substring(finalFileName.lastIndexOf('.')) : "");
+                    if (mod69Name != null) finalFileName = mod69Name;
+                }
                 concatFileNamesBuilder.append(finalFileName).append(" ");
             }
 
@@ -337,6 +349,10 @@ public class DownloadMediaService extends JobService {
             extras.putInt(EXTRA_IS_ALL_GALLERY_MEDIA, 1);
         }
 
+        if (post.getGallery() != null && post.getGallery().size() > 1) {
+            extras.putString(EXTRA_MOD69_ALBUM_FOLDER,
+                    ml.docilealligator.infinityforreddit.mod69.Mod69Naming.albumFolder(post));
+        }
         Mod69Hooks.tagExtras(extras, post);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -875,6 +891,11 @@ public class DownloadMediaService extends JobService {
                     Uri treeDirUri = DocumentTreeUtils.treeRootDocumentUri(Uri.parse(destinationFileDirectory));
                     if (separateDownloadFolder && subredditName != null && !subredditName.isEmpty()) {
                         destinationDirUri = DocumentTreeUtils.findChildDocumentUri(this, treeDirUri, subredditName);
+                        if (destinationDirUri != null && !isShare) {
+                            // 69 mod: a full subreddit folder becomes "name_yymmdd" and a new one is started
+                            destinationDirUri = ml.docilealligator.infinityforreddit.mod69.Mod69Folders.splitIfFull(
+                                    this, Uri.parse(destinationFileDirectory), destinationDirUri, subredditName);
+                        }
                         if (destinationDirUri == null) {
                             // The per-subreddit folder does not exist yet, so there is nothing to
                             // deduplicate against. Create it once the download succeeds.
@@ -912,6 +933,29 @@ public class DownloadMediaService extends JobService {
                     subredditDirParentUri = null;
                     subredditDirName = null;
                 }
+            }
+        }
+
+        // 69 mod: a file with the same name (any extension, also the "_lo"/"_480p" copies) is already in
+        // the folder - e.g. saved earlier by this app or by Multitool on the PC - so skip it and say so.
+        if (!isShare && destinationDirUri != null) {
+            Uri mod69CheckDir = destinationDirUri;
+            String mod69Album = multipleDownloads ? intent.getString(EXTRA_MOD69_ALBUM_FOLDER, null) : null;
+            if (mod69Album != null) {
+                mod69CheckDir = DocumentTreeUtils.findChildDocumentUri(this, destinationDirUri, mod69Album);
+            }
+            String mod69Found = mod69CheckDir == null ? null
+                    : ml.docilealligator.infinityforreddit.mod69.Mod69Folders.existingName(this, mod69CheckDir, fileName);
+            if (mod69Found != null) {
+                if (multipleDownloads) {
+                    mSkipped.merge(randomNotificationIdOffset, 1, Integer::sum);
+                } else {
+                    mInfo.put(randomNotificationIdOffset, getString(R.string.mod69_already_in_folder, mod69Found));
+                    updateNotification(builder, mediaType, R.string.mod69_already_downloaded_title, -1,
+                            randomNotificationIdOffset, null, null);
+                    jobFinished(params, false);
+                }
+                return true;
             }
         }
 
@@ -973,17 +1017,24 @@ public class DownloadMediaService extends JobService {
                         builder.setContentTitle(fileName);
                     }
                 }
-                if (!mod69.suffix.isEmpty()) {
-                    fileName = MediaProcessor.withSuffix(fileName, mod69.suffix);
+                String mod69Suffix = MediaProcessor.nameSuffix(mod69, mSharedPreferences);
+                if (!mod69Suffix.isEmpty()) {
+                    fileName = MediaProcessor.withSuffix(fileName, mod69Suffix);
                     if (!multipleDownloads) builder.setContentTitle(fileName);
                 }
+                mTitles.putIfAbsent(randomNotificationIdOffset, fileName);
                 if (!multipleDownloads) {
-                    String mod69Info = MediaProcessor.notificationInfo(mod69);
-                    mInfo.put(randomNotificationIdOffset, mod69Info);
+                    mInfo.put(randomNotificationIdOffset, MediaProcessor.notificationInfo(mod69));
+                } else {
+                    // album: details of the first file, plus a running count and total size
+                    mInfo.putIfAbsent(randomNotificationIdOffset, MediaProcessor.notificationInfo(mod69));
+                    mAlbumCount.merge(randomNotificationIdOffset, 1, Integer::sum);
+                    mAlbumBytes.merge(randomNotificationIdOffset, mod69.file.length(), Long::sum);
                 }
                 int mod69SavedType = mod69.mediaType;
                 if (mod69.thumbnail != null) {
-                    mThumbnails.put(randomNotificationIdOffset, mod69.thumbnail);
+                    // albums keep the first picture as the notification thumbnail
+                    mThumbnails.putIfAbsent(randomNotificationIdOffset, mod69.thumbnail);
                 }
                 ResponseBody mod69Body = ResponseBody.create(okio.Okio.buffer(okio.Okio.source(mod69.file)), null, mod69.file.length());
                 try {
@@ -995,6 +1046,24 @@ public class DownloadMediaService extends JobService {
 
                 if (destinationDirUri == null && subredditDirParentUri != null && subredditDirName != null) {
                     destinationDirUri = DocumentTreeUtils.createDirectory(this, subredditDirParentUri, subredditDirName);
+                }
+                // 69 mod: several album pictures go into their own "Title [id]" folder
+                Uri mod69CountDir = destinationDirUri;
+                String mod69AlbumFolder = intent.getString(EXTRA_MOD69_ALBUM_FOLDER, null);
+                if (multipleDownloads && mod69AlbumFolder != null && destinationDirUri != null) {
+                    Uri albumDir = mAlbumDirs.get(randomNotificationIdOffset);
+                    if (albumDir == null) {
+                        albumDir = DocumentTreeUtils.findChildDocumentUri(this, destinationDirUri, mod69AlbumFolder);
+                        if (albumDir == null) {
+                            albumDir = DocumentTreeUtils.createDirectory(this, destinationDirUri, mod69AlbumFolder);
+                            if (albumDir != null) ml.docilealligator.infinityforreddit.mod69.Mod69Folders.noteSaved(this, destinationDirUri);
+                        }
+                        if (albumDir != null) mAlbumDirs.put(randomNotificationIdOffset, albumDir);
+                    }
+                    if (albumDir != null) {
+                        destinationDirUri = albumDir;
+                        mod69CountDir = null;
+                    }
                 }
 
                 DocumentTreeUtils.CreatedDocument created = destinationDirUri == null ? null
@@ -1022,6 +1091,8 @@ public class DownloadMediaService extends JobService {
                             destinationFileUriString, fileName, mod69SavedType);
                     Log.d("ImgurDownload", "File written successfully");
                     Mod69Hooks.recordFile(this, mod69Key, mod69OrigName, destinationFileUri);
+                    if (!isDefaultDestination) ml.docilealligator.infinityforreddit.mod69.Mod69Folders.noteSaved(this, mod69CountDir);
+                    if (!isDefaultDestination && destinationDirUri != null) ml.docilealligator.infinityforreddit.mod69.Mod69Folders.noteName(destinationDirUri, fileName);
                     mod69Saved(randomNotificationIdOffset, destinationFileUri);
                     Mod69Hooks.onMediaDownloaded(this, intent, mOauthRetrofit, mCurrentAccountSharedPreferences, mSharedPreferences);
                     downloadFinished(params, builder, mediaType, randomNotificationIdOffset,
@@ -1122,6 +1193,11 @@ public class DownloadMediaService extends JobService {
                     text = text + "\n" + getString(R.string.mod69_saved_preview_only);
                 }
                 if (progress < 0) {
+                    Integer mod69Count = mAlbumCount.get(randomNotificationIdOffset);
+                    if (mod69Count != null && mod69Count > 1) {
+                        text = text + "\n" + mod69Count + " files saved, " + MediaProcessor.sizeText(
+                                mAlbumBytes.getOrDefault(randomNotificationIdOffset, 0L)) + " in total. First file:";
+                    }
                     String mod69Info = mInfo.get(randomNotificationIdOffset);
                     if (mod69Info != null && !mod69Info.isEmpty()) text = text + "\n" + mod69Info;
                     Integer mod69Skips = mSkipped.get(randomNotificationIdOffset);
@@ -1130,12 +1206,10 @@ public class DownloadMediaService extends JobService {
                 builder.setContentText(text);
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));
                 android.graphics.Bitmap mod69Thumb = mThumbnails.get(randomNotificationIdOffset);
-                if (mod69Thumb != null && progress < 0) {
-                    builder.setLargeIcon(mod69Thumb);
-                    builder.setStyle(new NotificationCompat.BigPictureStyle()
-                            .bigPicture(mod69Thumb)
-                            .bigLargeIcon((android.graphics.Bitmap) null)
-                            .setSummaryText(text));
+                if (progress < 0) {
+                    // full details and a big picture together
+                    ml.docilealligator.infinityforreddit.mod69.Mod69Notify.apply(this, builder,
+                            mTitles.get(randomNotificationIdOffset), text, mod69Thumb);
                 }
             }
 
