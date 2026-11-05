@@ -9,6 +9,10 @@
         app:title="@string/mod69_open_helper"
         app:summary="@string/mod69_open_helper_summary" />
 
+    <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreference
+        app:key="mod69_file_picker"
+        app:title="Folder / file picker" />
+
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontPreferenceCategory
         app:title="@string/mod69_category_names" />
 
