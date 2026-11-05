@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.Nullable;
@@ -33,11 +34,18 @@ public final class Mod69Ui {
         public final ImageView block;
         public final ImageView up;
         public final ImageView down;
+        /** 69 mod: the score between the vote arrows, and the comments button + count on the left. */
+        public final TextView score;
+        public final TextView comments;
+        /** Re-colours the vote arrows (after a vote made elsewhere, e.g. auto up-vote). */
+        @Nullable Runnable refreshVotes;
         final int iconColor;
 
         ActionRow(LinearLayout row, ImageView download, ImageView select, ImageView hide, ImageView block,
-                  ImageView up, ImageView down, int iconColor) {
+                  ImageView up, ImageView down, TextView score, TextView comments, int iconColor) {
             this.row = row;
+            this.score = score;
+            this.comments = comments;
             this.up = up;
             this.down = down;
             this.download = download;
@@ -69,6 +77,14 @@ public final class Mod69Ui {
         }
 
         /** Downloaded: orange (Reddit orange) background with a black icon. Otherwise plain. */
+        public void refreshVotesSoon() {
+            Runnable r = refreshVotes;
+            if (r == null) return;
+            row.post(r);
+            row.postDelayed(r, 600);
+            row.postDelayed(r, 2000);
+        }
+
         public void setDownloaded(boolean downloaded) {
             Context c = download.getContext();
             if (downloaded) {
@@ -142,12 +158,23 @@ public final class Mod69Ui {
         ImageView up = icon(c, R.drawable.mod69_ic_up, R.string.upvote, textColor);
         ImageView down = icon(c, R.drawable.mod69_ic_down, R.string.downvote, textColor);
         select.setVisibility(View.GONE);
-        // hide on the left, votes and download in the middle, block on the right
+        TextView score = text(c, textColor);
+        TextView comments = text(c, textColor);
+        comments.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_comment_grey_24dp, 0, 0, 0);
+        comments.setCompoundDrawablePadding(dp(c, 4));
+        if (comments.getCompoundDrawablesRelative()[0] != null) {
+            comments.getCompoundDrawablesRelative()[0].mutate().setColorFilter(textColor, PorterDuff.Mode.SRC_IN);
+        }
+        score.setVisibility(View.GONE);
+        comments.setVisibility(View.GONE);
+        // comments on the left, votes with the score in the middle, then download, hide, block
+        addEvenView(row, comments);
         addEven(row, hide);
         addEven(row, select);
         addEven(row, up);
-        addEven(row, download);
+        addEvenView(row, score);
         addEven(row, down);
+        addEven(row, download);
         addEven(row, block);
 
         int index = container.indexOfChild(toolbar);
@@ -167,9 +194,132 @@ public final class Mod69Ui {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         container.addView(wrapper, index, lp);
 
-        ActionRow ar = new ActionRow(row, download, select, hide, block, up, down, textColor);
+        ActionRow ar = new ActionRow(row, download, select, hide, block, up, down, score, comments, textColor);
         toolbar.setTag(R.id.mod69_action_row, ar);
         return ar;
+    }
+
+    private static TextView text(Context c, int color) {
+        TextView t = new TextView(c);
+        t.setTextColor(color);
+        t.setGravity(Gravity.CENTER);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        t.setMinHeight(dp(c, 40));
+        t.setPadding(dp(c, 4), 0, dp(c, 4), 0);
+        t.setBackground(selectable(c));
+        t.setMaxLines(1);
+        return t;
+    }
+
+    private static void addEvenView(LinearLayout row, View v) {
+        row.addView(v, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    }
+
+    /**
+     * 69 mod: right after blocking, the item becomes a slim "Blocked u/x · UNBLOCK" bar instead of
+     * disappearing. [onUnblock] null removes the bar again.
+     */
+    public static void setBlockedBar(View itemView, @Nullable String text, @Nullable Runnable onUnblock) {
+        if (!(itemView instanceof ViewGroup)) return;
+        ViewGroup g = (ViewGroup) itemView;
+        Object old = g.getTag(R.id.mod69_blocked_bar);
+        if (text == null) {
+            if (old instanceof View) {
+                g.removeView((View) old);
+                g.setTag(R.id.mod69_blocked_bar, null);
+                for (int i = 0; i < g.getChildCount(); i++) {
+                    View ch = g.getChildAt(i);
+                    Object v = ch.getTag(R.id.mod69_saved_visibility);
+                    if (v instanceof Integer) {
+                        ch.setVisibility((Integer) v);
+                        ch.setTag(R.id.mod69_saved_visibility, null);
+                    }
+                }
+            }
+            return;
+        }
+        setCollapsed(itemView, false);
+        if (!(old instanceof View)) {
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View ch = g.getChildAt(i);
+                ch.setTag(R.id.mod69_saved_visibility, ch.getVisibility());
+                ch.setVisibility(View.GONE);
+            }
+        }
+        Context c = g.getContext();
+        LinearLayout bar = old instanceof LinearLayout ? (LinearLayout) old : new LinearLayout(c);
+        bar.removeAllViews();
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(dp(c, 16), dp(c, 6), dp(c, 8), dp(c, 6));
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextColor(0xFF9E9E9E);
+        bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView un = new TextView(c);
+        un.setText("UNBLOCK");
+        un.setTextColor(0xFFFF4500);
+        un.setPadding(dp(c, 12), dp(c, 8), dp(c, 12), dp(c, 8));
+        un.setBackground(selectable(c));
+        un.setOnClickListener(v -> { if (onUnblock != null) onUnblock.run(); });
+        bar.addView(un);
+        if (!(old instanceof View)) {
+            ViewGroup.LayoutParams lp = g instanceof android.widget.FrameLayout
+                    ? new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    : new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            g.addView(bar, lp);
+            g.setTag(R.id.mod69_blocked_bar, bar);
+        }
+        bar.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * 69 mod: a "Show spoiler" button in the middle of a blurred picture. [onClick] null removes it.
+     * Works when the picture sits in a FrameLayout or ConstraintLayout (the post layouts do).
+     */
+    public static void setSpoilerButton(@Nullable View media, @Nullable Runnable onClick) {
+        if (media == null || !(media.getParent() instanceof ViewGroup)) return;
+        ViewGroup parent = (ViewGroup) media.getParent();
+        Object old = media.getTag(R.id.mod69_spoiler_button);
+        if (onClick == null) {
+            if (old instanceof View) ((View) old).setVisibility(View.GONE);
+            return;
+        }
+        TextView b;
+        if (old instanceof TextView) {
+            b = (TextView) old;
+        } else {
+            Context c = media.getContext();
+            b = new TextView(c);
+            b.setText(R.string.mod69_spoiler_show);
+            b.setTextColor(0xFFFFFFFF);
+            b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            b.setPadding(dp(c, 18), dp(c, 10), dp(c, 18), dp(c, 10));
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(0xCC000000);
+            bg.setCornerRadius(dp(c, 22));
+            b.setBackground(bg);
+            b.setElevation(dp(c, 4));
+            if (parent instanceof android.widget.FrameLayout) {
+                parent.addView(b, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+            } else if (parent instanceof androidx.constraintlayout.widget.ConstraintLayout && media.getId() != View.NO_ID) {
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp =
+                        new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.startToStart = media.getId();
+                lp.endToEnd = media.getId();
+                lp.topToTop = media.getId();
+                lp.bottomToBottom = media.getId();
+                parent.addView(b, lp);
+            } else {
+                return;
+            }
+            media.setTag(R.id.mod69_spoiler_button, b);
+        }
+        b.setVisibility(View.VISIBLE);
+        b.bringToFront();
+        b.setOnClickListener(v -> onClick.run());
     }
 
     /** Hides a list item in place (height 0), or shows it again. */
@@ -246,7 +396,39 @@ public final class Mod69Ui {
      */
     public static void bindVotes(ml.docilealligator.infinityforreddit.activities.BaseActivity activity, ActionRow row,
                                  @Nullable View realUp, @Nullable View realDown, java.util.function.IntSupplier voteType) {
-        boolean show = realUp != null && realDown != null;
+        bindVotes(activity, row, realUp, realDown, voteType, null, null);
+    }
+
+    /**
+     * @param swipeKey the "swipe actions on" setting for this list: when swipe voting is on, the
+     *                 arrows are left out (setting "Hide vote buttons when swiping votes", default on)
+     * @param realScore the app's own score text, mirrored between the arrows
+     */
+    public static void bindVotes(ml.docilealligator.infinityforreddit.activities.BaseActivity activity, ActionRow row,
+                                 @Nullable View realUp, @Nullable View realDown, java.util.function.IntSupplier voteType,
+                                 @Nullable String swipeKey, @Nullable TextView realScore) {
+        android.content.SharedPreferences sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity);
+        boolean swipeVotes = swipeKey != null && sp.getBoolean(swipeKey, false)
+                && sp.getBoolean(Mod69Prefs.HIDE_VOTES_WHEN_SWIPING, true);
+        if (realScore != null && sp.getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true)) {
+            row.score.setVisibility(View.VISIBLE);
+            realScore.setVisibility(View.GONE);
+        } else {
+            row.score.setVisibility(View.GONE);
+        }
+        boolean show = realUp != null && realDown != null && !swipeVotes;
+        if (realUp != null && realDown != null && swipeVotes) {
+            boolean hideOriginal = sp.getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true);
+            realUp.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
+            realDown.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
+        }
+        Runnable scoreSync = () -> {
+            if (realScore == null) return;
+            row.score.setText(realScore.getText());
+            row.score.setTextColor(realScore.getCurrentTextColor());
+        };
+        scoreSync.run();
+        row.refreshVotes = scoreSync;
         row.up.setVisibility(show ? View.VISIBLE : View.GONE);
         row.down.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
@@ -266,16 +448,19 @@ public final class Mod69Ui {
             row.up.setColorFilter(upColor, PorterDuff.Mode.SRC_IN);
             row.down.setColorFilter(downColor, PorterDuff.Mode.SRC_IN);
         };
-        tint.run();
+        Runnable both = () -> {
+            tint.run();
+            scoreSync.run();
+        };
+        both.run();
+        row.refreshVotes = both;
         row.up.setOnClickListener(x -> {
             realUp.performClick();
-            tint.run();
-            row.up.postDelayed(tint, 1500); // the app saves the vote a moment later
+            row.refreshVotesSoon(); // the app saves the vote a moment later
         });
         row.down.setOnClickListener(x -> {
             realDown.performClick();
-            tint.run();
-            row.down.postDelayed(tint, 1500);
+            row.refreshVotesSoon();
         });
     }
 }

@@ -24,6 +24,8 @@ public final class Mod69Prefs {
     public static final String MAX_TITLE_LENGTH = "mod69_max_title_length";
     public static final String QUALITY_IN_NAMES = "mod69_quality_in_names";
     public static final String HIDE_ORIGINAL_VOTES = "mod69_hide_original_votes";
+    /** Leave out the row's up/down arrows when swipe voting is on (default on). */
+    public static final String HIDE_VOTES_WHEN_SWIPING = "mod69_hide_votes_when_swiping";
 
     private Mod69Prefs() {}
 

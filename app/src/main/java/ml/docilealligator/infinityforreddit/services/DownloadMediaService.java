@@ -663,7 +663,9 @@ public class DownloadMediaService extends JobService {
                                             if (currentTime - time > 1000) {
                                                 time = currentTime;
                                                 int currentMediaProgress = (int) (((float) bytesRead / contentLength + (float) finalI / urls.length) * 100);
-                                                updateNotification(builder, individualMediaType, 0, currentMediaProgress, randomNotificationIdOffset, null, null);
+                                                // 69 mod: same notification id as the "finished" message (was stuck at 90%)
+                                                builder.setContentText("Downloading " + (finalI + 1) + " of " + urls.length);
+                                                updateNotification(builder, mediaType, 0, currentMediaProgress, randomNotificationIdOffset, null, null);
                                             }
                                         }
                                     }
@@ -1187,21 +1189,28 @@ public class DownloadMediaService extends JobService {
 
             if (contentStringResId != 0) {
                 String text = getString(contentStringResId);
-                if (mPreviewOnlyNotifications.contains(randomNotificationIdOffset)
-                        && (contentStringResId == R.string.downloading_media_finished
-                        || contentStringResId == R.string.download_gallery_failed_some_images)) {
-                    text = text + "\n" + getString(R.string.mod69_saved_preview_only);
-                }
                 if (progress < 0) {
+                    // 69 mod: at most two lines. 1: result + count + size, 2: details.
                     Integer mod69Count = mAlbumCount.get(randomNotificationIdOffset);
+                    StringBuilder line1 = new StringBuilder(text);
                     if (mod69Count != null && mod69Count > 1) {
-                        text = text + "\n" + mod69Count + " files saved, " + MediaProcessor.sizeText(
-                                mAlbumBytes.getOrDefault(randomNotificationIdOffset, 0L)) + " in total. First file:";
+                        line1.append(" · ").append(mod69Count).append(" files · ").append(MediaProcessor.sizeText(
+                                mAlbumBytes.getOrDefault(randomNotificationIdOffset, 0L)));
+                    }
+                    Integer mod69Skips = mSkipped.get(randomNotificationIdOffset);
+                    if (mod69Skips != null && mod69Skips > 0) line1.append(" · ").append(mod69Skips).append(" skipped");
+                    StringBuilder line2 = new StringBuilder();
+                    if (mPreviewOnlyNotifications.contains(randomNotificationIdOffset)
+                            && (contentStringResId == R.string.downloading_media_finished
+                            || contentStringResId == R.string.download_gallery_failed_some_images)) {
+                        line2.append(getString(R.string.mod69_saved_preview_only)).append(" · ");
                     }
                     String mod69Info = mInfo.get(randomNotificationIdOffset);
-                    if (mod69Info != null && !mod69Info.isEmpty()) text = text + "\n" + mod69Info;
-                    Integer mod69Skips = mSkipped.get(randomNotificationIdOffset);
-                    if (mod69Skips != null && mod69Skips > 0) text = text + "\n" + getString(R.string.mod69_skipped_count, mod69Skips);
+                    if (mod69Info != null && !mod69Info.isEmpty()) line2.append(mod69Info.replace("\n", " · "));
+                    String l2 = line2.toString().trim();
+                    if (l2.endsWith("·")) l2 = l2.substring(0, l2.length() - 1).trim();
+                    if (l2.length() > 90) l2 = l2.substring(0, 88) + "…";
+                    text = l2.isEmpty() ? line1.toString() : line1 + "\n" + l2;
                 }
                 builder.setContentText(text);
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));

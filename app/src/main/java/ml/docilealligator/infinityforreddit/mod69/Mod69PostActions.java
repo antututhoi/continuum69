@@ -356,36 +356,158 @@ public final class Mod69PostActions {
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                Post post, int position, View itemView, @Nullable View upvoteButton,
                                @Nullable View downvoteButton) {
+        bindRow(row, activity, oauthRetrofit, post, position, itemView, upvoteButton, downvoteButton, null, null);
+    }
+
+    /** Posts blocked just now: they show an "Unblock" bar instead of vanishing. */
+    private static final Set<String> justBlocked = Collections.synchronizedSet(new HashSet<>());
+
+    public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
+                               Post post, int position, View itemView, @Nullable View upvoteButton,
+                               @Nullable View downvoteButton, @Nullable TextView scoreView, @Nullable View commentsButton) {
+        // A recycled view may still show another post's "Unblock" bar.
+        Mod69Ui.setBlockedBar(itemView, null, null);
         if (row == null) return;
-        Mod69Ui.bindVotes(activity, row, upvoteButton, downvoteButton, post::getVoteType);
+        Mod69Ui.bindVotes(activity, row, upvoteButton, downvoteButton, post::getVoteType,
+                ml.docilealligator.infinityforreddit.utils.SharedPreferencesUtils.ENABLE_SWIPE_ACTION, scoreView);
         boolean show = showButtons(activity);
         row.row.setVisibility(show ? View.VISIBLE : View.GONE);
+        // comments button + count on the left of the row (the app's own one is hidden)
+        if (commentsButton instanceof TextView && prefs(activity).getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true)) {
+            row.comments.setVisibility(View.VISIBLE);
+            row.comments.setText(String.valueOf(post.getNComments()));
+            row.comments.setOnClickListener(v -> commentsButton.performClick());
+            commentsButton.setVisibility(View.GONE);
+        } else {
+            row.comments.setVisibility(View.GONE);
+        }
         row.download.setVisibility(canDownload(post) ? View.VISIBLE : View.GONE);
         boolean downloaded = showMark(activity) && Mod69Hooks.isDownloaded(activity, post.getFullName());
         row.setDownloaded(downloaded);
         row.track(post.getFullName());
         boolean album = post.getPostType() == Post.GALLERY_TYPE && post.getGallery() != null && post.getGallery().size() > 1;
-        row.select.setVisibility(album ? View.VISIBLE : View.GONE);
-        row.select.setOnClickListener(v -> showGallerySelect(activity, post));
+        // one Download button: tap = what is on screen, hold = choose
+        row.select.setVisibility(View.GONE);
         row.download.setOnClickListener(v -> {
             upvoteOnScreen(activity, post, upvoteButton);
+            row.refreshVotesSoon();
             if (album) {
-                // plain tap on an album downloads all of it; the select icon picks images
-                Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
-                schedule(activity, DownloadMediaService.constructGalleryDownloadAllMediaJobInfo(activity, 5000000L * post.getGallery().size(), post));
+                downloadPost(activity, post, currentGalleryIndex(itemView));
             } else {
                 download(activity, post);
             }
         });
         row.download.setOnLongClickListener(v -> {
-            showQualityMenu(activity, v, post, upvoteButton);
+            showDownloadMenu(activity, v, post, upvoteButton, row);
             return true;
         });
         row.hide.setOnClickListener(v -> hide(activity, oauthRetrofit, post, position,
                 () -> Mod69Ui.setCollapsed(itemView, true)));
-        row.block.setOnClickListener(v -> block(activity, oauthRetrofit, post,
-                () -> Mod69Ui.setCollapsed(itemView, true), () -> Mod69Ui.setCollapsed(itemView, false)));
-        Mod69Ui.setCollapsed(itemView, shouldCollapse(post));
+        row.block.setOnClickListener(v -> block(activity, oauthRetrofit, post, () -> {
+            justBlocked.add(post.getFullName());
+            showUnblockBar(activity, oauthRetrofit, post, itemView);
+        }, () -> {
+            justBlocked.remove(post.getFullName());
+            Mod69Ui.setBlockedBar(itemView, null, null);
+        }));
+        if (justBlocked.contains(post.getFullName()) && isAuthorBlocked(post.getAuthor())) {
+            showUnblockBar(activity, oauthRetrofit, post, itemView);
+        } else {
+            Mod69Ui.setCollapsed(itemView, shouldCollapse(post));
+        }
+    }
+
+    private static void showUnblockBar(BaseActivity activity, Retrofit oauthRetrofit, Post post, View itemView) {
+        String author = post.getAuthor();
+        Mod69Ui.setBlockedBar(itemView, "Blocked u/" + author, () -> {
+            justBlocked.remove(post.getFullName());
+            blockedAuthors.remove(author == null ? "" : author.toLowerCase(Locale.ROOT));
+            Mod69Ui.setBlockedBar(itemView, null, null);
+            if (!Account.ANONYMOUS_ACCOUNT.equals(activity.accountName) && author != null) {
+                ml.docilealligator.infinityforreddit.user.BlockUser.unblockUser(oauthRetrofit, activity.accessToken, author,
+                        new ml.docilealligator.infinityforreddit.user.BlockUser.BlockUserListener() {
+                            @Override
+                            public void success() {
+                                Toast.makeText(activity, "Unblocked u/" + author, Toast.LENGTH_SHORT).show();
+                            }
+
+                            @Override
+                            public void failed() {
+                                Toast.makeText(activity, "Shown again here. Unblocking on Reddit failed", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+            }
+        });
+    }
+
+    /** The gallery page shown in the feed right now (0 when unknown). */
+    static int currentGalleryIndex(View itemView) {
+        androidx.recyclerview.widget.RecyclerView rv = findHorizontalList(itemView, 0);
+        if (rv != null && rv.getLayoutManager() instanceof androidx.recyclerview.widget.LinearLayoutManager) {
+            int p = ((androidx.recyclerview.widget.LinearLayoutManager) rv.getLayoutManager()).findFirstCompletelyVisibleItemPosition();
+            if (p < 0) p = ((androidx.recyclerview.widget.LinearLayoutManager) rv.getLayoutManager()).findFirstVisibleItemPosition();
+            return Math.max(0, p);
+        }
+        return 0;
+    }
+
+    @Nullable
+    private static androidx.recyclerview.widget.RecyclerView findHorizontalList(View v, int depth) {
+        if (depth > 10) return null;
+        if (v instanceof androidx.recyclerview.widget.RecyclerView) {
+            androidx.recyclerview.widget.RecyclerView.LayoutManager lm = ((androidx.recyclerview.widget.RecyclerView) v).getLayoutManager();
+            if (lm instanceof androidx.recyclerview.widget.LinearLayoutManager
+                    && ((androidx.recyclerview.widget.LinearLayoutManager) lm).getOrientation() == androidx.recyclerview.widget.RecyclerView.HORIZONTAL) {
+                return (androidx.recyclerview.widget.RecyclerView) v;
+            }
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                androidx.recyclerview.widget.RecyclerView r = findHorizontalList(g.getChildAt(i), depth + 1);
+                if (r != null) return r;
+            }
+        }
+        return null;
+    }
+
+    /** Hold Download: choose images, the whole album, or a quality. */
+    static void showDownloadMenu(BaseActivity activity, View anchor, Post post, @Nullable View upvoteButton,
+                                 Mod69Ui.ActionRow row) {
+        boolean album = post.getPostType() == Post.GALLERY_TYPE && post.getGallery() != null && post.getGallery().size() > 1;
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(activity, anchor);
+        if (album) {
+            menu.getMenu().add(0, 10, 0, R.string.mod69_select_images);
+            menu.getMenu().add(0, 11, 1, "Whole album (" + post.getGallery().size() + ")");
+        }
+        menu.getMenu().add(0, 1, 2, R.string.mod69_download_original);
+        menu.getMenu().add(0, 2, 3, R.string.mod69_download_low);
+        menu.setOnMenuItemClickListener(item -> {
+            upvoteOnScreen(activity, post, upvoteButton);
+            row.refreshVotesSoon();
+            int id = item.getItemId();
+            if (id == 10) {
+                showGallerySelect(activity, post);
+            } else if (id == 11) {
+                Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
+                schedule(activity, DownloadMediaService.constructGalleryDownloadAllMediaJobInfo(activity, 5000000L * post.getGallery().size(), post));
+            } else {
+                String q = id == 1 ? "high" : "low";
+                if (album) {
+                    sQuality = q;
+                    try {
+                        Toast.makeText(activity, R.string.download_started, Toast.LENGTH_SHORT).show();
+                        schedule(activity, DownloadMediaService.constructGalleryDownloadAllMediaJobInfo(activity, 5000000L * post.getGallery().size(), post));
+                    } finally {
+                        sQuality = null;
+                    }
+                } else {
+                    downloadPostWithQuality(activity, post, 0, q);
+                }
+            }
+            return true;
+        });
+        menu.show();
     }
 
     /** A tiny "Downloaded" label for layouts without a toolbar. */

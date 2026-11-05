@@ -8,5 +8,8 @@
     <item name="mod69_tag_post" type="id" />
     <item name="mod69_action_row" type="id" />
     <item name="mod69_saved_layout" type="id" />
+    <item name="mod69_blocked_bar" type="id" />
+    <item name="mod69_spoiler_button" type="id" />
+    <item name="mod69_saved_visibility" type="id" />
     <item name="mod69_tag_post_object" type="id" />
 </resources>

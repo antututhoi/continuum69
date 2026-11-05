@@ -824,6 +824,14 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
      * removing the gallery branches' getItem(position) clears the error, the text branch's does
      * not.
      */
+    /** 69 mod: the picture of a post (for the centre "Show spoiler" button). */
+    @Nullable
+    private static View mod69Media(RecyclerView.ViewHolder holder) {
+        if (holder instanceof PostWithPreviewTypeViewHolder) return ((PostWithPreviewTypeViewHolder) holder).imageView;
+        if (holder instanceof PostBaseGalleryTypeViewHolder) return ((PostBaseGalleryTypeViewHolder) holder).galleryRecyclerView;
+        return null;
+    }
+
     @SuppressLint("RecyclerView")
     @OptIn(markerClass = UnstableApi.class)
     @Override
@@ -842,7 +850,8 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
             // buttons off = the post layout is left completely untouched
             Mod69PostActions.bindRow(Mod69PostActions.showButtons(mActivity) ? Mod69Ui.attachRow(mod69Anchor, mPrimaryTextColor) : null,
                     mActivity, mOauthRetrofit, post, position, holder.itemView,
-                    ((PostViewHolder) holder).upvoteButton, ((PostViewHolder) holder).downvoteButton);
+                    ((PostViewHolder) holder).upvoteButton, ((PostViewHolder) holder).downvoteButton,
+                    ((PostViewHolder) holder).scoreTextView, ((PostViewHolder) holder).commentsCountButton);
 
             if (mHandleReadPost && post.isRead()) {
                 ((PostViewHolder) holder).setItemViewBackgroundColor(true);
@@ -1068,18 +1077,24 @@ public class PostRecyclerViewAdapter extends PagingDataAdapter<Post, RecyclerVie
                 // 69 mod: one tap on the Spoiler label shows the picture right here
                 if (mNeedBlurSpoiler && !Mod69PostActions.isRevealed(post)) {
                     ((PostViewHolder) holder).spoilerTextView.setText(R.string.mod69_spoiler_show);
-                    ((PostViewHolder) holder).spoilerTextView.setOnClickListener(v -> {
+                    Runnable mod69Reveal = () -> {
                         Post mod69Post = ((PostViewHolder) holder).post;
                         if (mod69Post == null) return;
                         Mod69PostActions.reveal(mod69Post);
                         int p = holder.getBindingAdapterPosition();
                         if (p >= 0) notifyItemChanged(p);
-                    });
+                    };
+                    ((PostViewHolder) holder).spoilerTextView.setOnClickListener(v -> mod69Reveal.run());
+                    // and a big button in the middle of the picture
+                    Mod69Ui.setSpoilerButton(mod69Media(holder), mod69Reveal);
                 } else {
                     ((PostViewHolder) holder).spoilerTextView.setText(R.string.spoiler);
                     ((PostViewHolder) holder).spoilerTextView.setOnClickListener(null);
                     ((PostViewHolder) holder).spoilerTextView.setClickable(false);
+                    Mod69Ui.setSpoilerButton(mod69Media(holder), null);
                 }
+            } else {
+                Mod69Ui.setSpoilerButton(mod69Media(holder), null);
             }
 
             if (((PostViewHolder) holder).flairTextView != null && post.getFlair() != null && !post.getFlair().isEmpty()) {

@@ -250,6 +250,11 @@ public interface RedditAPI {
     @POST("api/block_user")
     Call<String> blockUser(@HeaderMap Map<String, String> headers, @FieldMap Map<String, String> params);
 
+    // 69 mod: unblock (Reddit's "unfriend" with type=enemy)
+    @FormUrlEncoded
+    @POST("api/unfriend")
+    Call<String> unblockUser(@HeaderMap Map<String, String> headers, @FieldMap Map<String, String> params);
+
     @GET("r/{subredditName}/api/user_flair_v2.json?raw_json=1")
     Call<String> getUserFlairs(@HeaderMap Map<String, String> headers, @Path("subredditName") @Nullable String subredditName);
 

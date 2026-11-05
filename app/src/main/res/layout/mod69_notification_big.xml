@@ -17,7 +17,8 @@
         style="@style/TextAppearance.Compat.Notification"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxLines="5" />
+        android:maxLines="2"
+        android:ellipsize="end" />
 
     <ImageView
         android:id="@+id/mod69_notif_image"

@@ -16,6 +16,24 @@ public class BlockUser {
         void failed();
     }
 
+    /** 69 mod: undo a block. */
+    public static void unblockUser(Retrofit oauthRetrofit, String accessToken, String username, BlockUserListener listener) {
+        Map<String, String> params = new HashMap<>();
+        params.put(APIUtils.NAME_KEY, username);
+        params.put("type", "enemy");
+        oauthRetrofit.create(RedditAPI.class).unblockUser(APIUtils.getOAuthHeader(accessToken), params).enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(@NonNull Call<String> call, @NonNull Response<String> response) {
+                if (response.isSuccessful()) listener.success(); else listener.failed();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<String> call, @NonNull Throwable t) {
+                listener.failed();
+            }
+        });
+    }
+
     public static void blockUser(Retrofit oauthRetrofit, String accessToken, String username, BlockUserListener blockUserListener) {
         Map<String, String> params = new HashMap<>();
         params.put(APIUtils.NAME_KEY, username);

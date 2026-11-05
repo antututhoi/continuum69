@@ -509,7 +509,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
         mImageAndGifEntry = new ImageAndGifEntry(activity,
                 mGlide, SharedPreferencesUtils.getInt(postDetailsSharedPreferences, SharedPreferencesUtils.EMBEDDED_MEDIA_TYPE, "15"),
                 mDataSavingMode, mDisableImagePreview,
-                (mPost != null && mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost != null && mPost.isSpoiler() && mNeedBlurSpoiler),
+                (mPost != null && mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost != null && mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost)),
                 (mediaMetadata, commentId, postId, postTitle) -> {
                     if (mPost == null) {
                         return;
@@ -608,7 +608,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
                     }
                     return VIEW_TYPE_POST_DETAIL_GIF_AUTOPLAY;
                 } else {
-                    if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler)) {
+                    if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost))) {
                         return VIEW_TYPE_POST_DETAIL_NO_PREVIEW_LINK;
                     }
                     return VIEW_TYPE_POST_DETAIL_VIDEO_AND_GIF_PREVIEW;
@@ -1214,7 +1214,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
                                 mActivity.getResources().getDisplayMetrics().heightPixels / 2);
                         ((PostDetailGalleryViewHolder) holder).adapter.setRatio(1);
                     }
-                    boolean blurGallery = (mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler);
+                    boolean blurGallery = (mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost));
                     ((PostDetailGalleryViewHolder) holder).adapter.setBlurImage(blurGallery);
                     // Same rule the feed follows for gallery gifs (issue #382): Video Autoplay on,
                     // not an autoplay-skipped NSFW/spoiler post, not blurred, not the grid layout.
@@ -1406,7 +1406,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
         // slot forever. Starting a load is what turns it on, and that happens here.
         if (holder instanceof PostDetailImageAndGifAutoplayViewHolder) {
             ((PostDetailImageAndGifAutoplayViewHolder) holder).binding.progressBarItemPostDetailImageAndGifAutoplay.setVisibility(View.VISIBLE);
-            boolean blurImage = (mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mPost.getPostType() == Post.GIF_TYPE && mAutoplayNsfwVideos)) || (mPost.isSpoiler() && mNeedBlurSpoiler);
+            boolean blurImage = (mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()) && !(mPost.getPostType() == Post.GIF_TYPE && mAutoplayNsfwVideos)) || (mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost));
             String url = mPost.getPostType() == Post.IMAGE_TYPE || blurImage ? preview.getPreviewUrl() : mPost.getUrl();
             RequestBuilder<Drawable> imageRequestBuilder = mGlide.load(url)
                     .listener(new RequestListener<>() {
@@ -1472,7 +1472,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
                         }
                     });
 
-            if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler)) {
+            if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost))) {
                 imageRequestBuilder.apply(RequestOptions.bitmapTransform(new BlurTransformation(50, 10)))
                         .into(((PostDetailVideoAndGifPreviewHolder) holder).binding.imageViewItemPostDetailVideoAndGifPreview);
             } else {
@@ -1507,7 +1507,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
                         }
                     });
 
-            if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler)) {
+            if ((mPost.isNSFW() && mNeedBlurNsfw && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit())) || (mPost.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(mPost))) {
                 imageRequestBuilder.apply(RequestOptions.bitmapTransform(new BlurTransformation(50, 10)))
                         .into(((PostDetailLinkViewHolder) holder).binding.imageViewItemPostDetailLink);
             } else {
@@ -1542,7 +1542,7 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
         mImageAndGifEntry.setBlurImage(
                 (post.isNSFW() && mNeedBlurNsfw
                         && !(mDoNotBlurNsfwInNsfwSubreddits && mFragment != null && mFragment.getIsNsfwSubreddit()))
-                        || (post.isSpoiler() && mNeedBlurSpoiler)
+                        || (post.isSpoiler() && mNeedBlurSpoiler && !ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.isRevealed(post))
         );
     }
 

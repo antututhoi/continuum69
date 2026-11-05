@@ -323,8 +323,19 @@ public final class Mod69Comments {
         row.select.setVisibility(View.GONE);
         row.setDownloaded(downloaded);
         row.track("t1_" + comment.getId());
-        Mod69Ui.bindVotes(activity, row, show ? upvoteButton : null, show ? downvoteButton : null, comment::getVoteType);
-        row.download.setOnClickListener(v -> download(activity, post, comment, null));
+        Mod69Ui.bindVotes(activity, row, show ? upvoteButton : null, show ? downvoteButton : null, comment::getVoteType,
+                ml.docilealligator.infinityforreddit.utils.SharedPreferencesUtils.ENABLE_COMMENT_SWIPE_ACTION, null);
+        row.download.setOnClickListener(v -> {
+            // 69 mod: "up-vote on download" also for comments with media
+            if (upvoteButton != null && comment.getVoteType() != 1
+                    && androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity)
+                    .getBoolean(Mod69Prefs.AUTO_UPVOTE_ON_DOWNLOAD, false)
+                    && !ml.docilealligator.infinityforreddit.account.Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) {
+                upvoteButton.performClick();
+                row.refreshVotesSoon();
+            }
+            download(activity, post, comment, null);
+        });
         row.hide.setOnClickListener(v -> Mod69Ui.show(activity, new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.mod69_hide_user)
                 .setMessage("u/" + comment.getAuthor())
