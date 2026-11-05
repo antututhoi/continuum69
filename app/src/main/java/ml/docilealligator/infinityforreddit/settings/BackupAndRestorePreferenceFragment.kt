@@ -120,7 +120,7 @@ class BackupAndRestorePreferenceFragment : CustomFontPreferenceFragmentCompat() 
         restoreSettingsPreference?.setOnPreferenceClickListener {
             var chooseFile = Intent(Intent.ACTION_GET_CONTENT)
             chooseFile.type = "application/zip"
-            chooseFile = Intent.createChooser(chooseFile, "Choose a backup file")
+            chooseFile = ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), chooseFile)
             startActivityForResult(chooseFile, SELECT_RESTORE_SETTINGS_DIRECTORY_REQUEST_CODE)
             true
         }
@@ -171,7 +171,7 @@ class BackupAndRestorePreferenceFragment : CustomFontPreferenceFragmentCompat() 
         passwordDialog(R.string.enter_backup_password, R.string.backup_password_dialog_title,
             R.string.backup_password_dialog_message) { password ->
             backupPassword = password
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE),
+            startActivityForResult(ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)),
                 SELECT_BACKUP_SETTINGS_DIRECTORY_REQUEST_CODE)
         }
     }

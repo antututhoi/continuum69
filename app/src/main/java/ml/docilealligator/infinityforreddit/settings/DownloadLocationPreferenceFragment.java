@@ -74,7 +74,7 @@ public class DownloadLocationPreferenceFragment extends CustomFontPreferenceFrag
 
             nsfwDownloadLocationPreference.setOnPreferenceClickListener(preference -> {
                 Intent intent = new Intent(ACTION_OPEN_DOCUMENT_TREE);
-                startActivityForResult(intent, NSFW_DOWNLOAD_LOCATION_REQUEST_CODE);
+                startActivityForResult(ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), intent), NSFW_DOWNLOAD_LOCATION_REQUEST_CODE);
                 return true;
             });
             // No long click for NSFW location for now, can be added if needed.
@@ -89,7 +89,7 @@ public class DownloadLocationPreferenceFragment extends CustomFontPreferenceFrag
 
             imageDownloadLocationPreference.setOnPreferenceClickListener(preference -> {
                 Intent intent = new Intent(ACTION_OPEN_DOCUMENT_TREE);
-                startActivityForResult(intent, IMAGE_DOWNLOAD_LOCATION_REQUEST_CODE);
+                startActivityForResult(ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), intent), IMAGE_DOWNLOAD_LOCATION_REQUEST_CODE);
                 return true;
             });
         }
@@ -104,7 +104,7 @@ public class DownloadLocationPreferenceFragment extends CustomFontPreferenceFrag
 
             gifDownloadLocationPreference.setOnPreferenceClickListener(preference -> {
                 Intent intent = new Intent(ACTION_OPEN_DOCUMENT_TREE);
-                startActivityForResult(intent, GIF_DOWNLOAD_LOCATION_REQUEST_CODE);
+                startActivityForResult(ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), intent), GIF_DOWNLOAD_LOCATION_REQUEST_CODE);
                 return true;
             });
         }
@@ -119,7 +119,7 @@ public class DownloadLocationPreferenceFragment extends CustomFontPreferenceFrag
 
             videoDownloadLocationPreference.setOnPreferenceClickListener(preference -> {
                 Intent intent = new Intent(ACTION_OPEN_DOCUMENT_TREE);
-                startActivityForResult(intent, VIDEO_DOWNLOAD_LOCATION_REQUEST_CODE);
+                startActivityForResult(ml.docilealligator.infinityforreddit.mod69.Mod69Picker.apply(requireContext(), intent), VIDEO_DOWNLOAD_LOCATION_REQUEST_CODE);
                 return true;
             });
         }
