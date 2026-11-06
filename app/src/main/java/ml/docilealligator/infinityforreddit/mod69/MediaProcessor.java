@@ -61,10 +61,18 @@ public final class MediaProcessor {
 
     /** Text for the finished-download notification: quality, size, dimensions and what was converted. */
     public static String notificationInfo(Result r) {
+        // 69 mod: short, so nothing gets cut: "_lo · JPG · 1.2 MB · 1280x720 · WebP 3 MB -> 1 MB"
         StringBuilder sb = new StringBuilder();
+        if (r.suffix != null && !r.suffix.isEmpty()) sb.append(r.suffix).append(" · ");
         sb.append(r.extension.toUpperCase()).append(" · ").append(size(r.finalSize >= 0 ? r.finalSize : r.file.length()));
         if (r.width > 0 && r.height > 0) sb.append(" · ").append(r.width).append('x').append(r.height);
-        if (r.info != null && !r.info.isEmpty()) sb.append('\n').append(r.info);
+        if (r.info != null && !r.info.isEmpty()) {
+            for (String line : r.info.split("\n")) {
+                String l = line.trim();
+                if (l.isEmpty() || l.startsWith("Quality:")) continue;
+                sb.append('\n').append(l);
+            }
+        }
         return sb.toString();
     }
 

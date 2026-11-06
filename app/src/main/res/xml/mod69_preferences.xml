@@ -79,14 +79,9 @@
 
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
         app:defaultValue="true"
-        app:key="mod69_hide_original_votes"
-        app:title="@string/mod69_hide_original_votes"
-        app:summary="@string/mod69_hide_original_votes_summary" />
-    <SwitchPreferenceCompat
-        app:defaultValue="true"
         app:key="mod69_hide_votes_when_swiping"
-        app:title="Hide vote buttons when swipe voting is on"
-        app:summary="The row's up/down arrows are left out while swipe actions are on (posts and comments separately)" />
+        app:title="69- Hide vote buttons when swipe voting is on"
+        app:summary="Only the vote count stays, in the middle (posts and comments follow their own swipe setting)" />
 
     <ml.docilealligator.infinityforreddit.customviews.preference.CustomFontSwitchPreference
         app:defaultValue="true"

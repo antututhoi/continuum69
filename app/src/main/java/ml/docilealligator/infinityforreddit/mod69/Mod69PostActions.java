@@ -183,7 +183,11 @@ public final class Mod69PostActions {
             ImageView iv = new ImageView(activity);
             iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
             row.addView(iv, new LinearLayout.LayoutParams(thumb, thumb));
-            Glide.with(activity).load(g.url).into(iv);
+            // 69 mod: the small preview (the full file is often too big / a video and showed nothing)
+            String thumbUrl = g.feedPreviewUrl != null && !g.feedPreviewUrl.isEmpty() ? g.feedPreviewUrl : g.url;
+            Glide.with(activity).load(thumbUrl).override(thumb, thumb).centerCrop()
+                    .error(Glide.with(activity).load(g.fallbackUrl != null ? g.fallbackUrl : g.url).override(thumb, thumb).centerCrop())
+                    .into(iv);
             CheckBox cb = new CheckBox(activity);
             String type = g.mediaType == Post.Gallery.TYPE_VIDEO ? "video" : g.mediaType == Post.Gallery.TYPE_GIF ? "GIF" : "image";
             cb.setText("  " + (i + 1) + " (" + type + ")");
@@ -301,21 +305,8 @@ public final class Mod69PostActions {
                     String key = author.toLowerCase(Locale.ROOT);
                     blockedAuthors.add(key);
                     if (onBlocked != null) onBlocked.run();
-                    View root = activity.findViewById(android.R.id.content);
-                    com.google.android.material.snackbar.Snackbar bar = com.google.android.material.snackbar.Snackbar
-                            .make(root, activity.getString(R.string.mod69_blocked_undo, author), 6000)
-                            .setAction(R.string.mod69_undo, v -> {
-                                blockedAuthors.remove(key);
-                                if (onUndo != null) onUndo.run();
-                            });
-                    bar.addCallback(new com.google.android.material.snackbar.BaseTransientBottomBar.BaseCallback<com.google.android.material.snackbar.Snackbar>() {
-                        @Override
-                        public void onDismissed(com.google.android.material.snackbar.Snackbar transientBottomBar, int event) {
-                            if (event == DISMISS_EVENT_ACTION) return; // undone
-                            sendBlock(activity, oauthRetrofit, author);
-                        }
-                    });
-                    bar.show();
+                    // 69 mod: no countdown popup; the item shows an UNBLOCK bar instead
+                    sendBlock(activity, oauthRetrofit, author);
                 })
                 .setNegativeButton(android.R.string.cancel, null));
     }
@@ -372,15 +363,8 @@ public final class Mod69PostActions {
                 ml.docilealligator.infinityforreddit.utils.SharedPreferencesUtils.ENABLE_SWIPE_ACTION, scoreView);
         boolean show = showButtons(activity);
         row.row.setVisibility(show ? View.VISIBLE : View.GONE);
-        // comments button + count on the left of the row (the app's own one is hidden)
-        if (commentsButton instanceof TextView && prefs(activity).getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true)) {
-            row.comments.setVisibility(View.VISIBLE);
-            row.comments.setText(String.valueOf(post.getNComments()));
-            row.comments.setOnClickListener(v -> commentsButton.performClick());
-            commentsButton.setVisibility(View.GONE);
-        } else {
-            row.comments.setVisibility(View.GONE);
-        }
+        if (commentsButton != null) commentsButton.setVisibility(View.VISIBLE);
+        Mod69Ui.arrangeToolbar(upvoteButton, scoreView, downvoteButton, commentsButton);
         row.download.setVisibility(canDownload(post) ? View.VISIBLE : View.GONE);
         boolean downloaded = showMark(activity) && Mod69Hooks.isDownloaded(activity, post.getFullName());
         row.setDownloaded(downloaded);
@@ -401,8 +385,12 @@ public final class Mod69PostActions {
             showDownloadMenu(activity, v, post, upvoteButton, row);
             return true;
         });
+        // 69 mod: hidden / blocked posts become a slim bar with UNHIDE / UNBLOCK right where they were
         row.hide.setOnClickListener(v -> hide(activity, oauthRetrofit, post, position,
-                () -> Mod69Ui.setCollapsed(itemView, true)));
+                () -> {
+                    justHidden.add(post.getFullName());
+                    showUnhideBar(activity, oauthRetrofit, post, itemView);
+                }));
         row.block.setOnClickListener(v -> block(activity, oauthRetrofit, post, () -> {
             justBlocked.add(post.getFullName());
             showUnblockBar(activity, oauthRetrofit, post, itemView);
@@ -412,32 +400,65 @@ public final class Mod69PostActions {
         }));
         if (justBlocked.contains(post.getFullName()) && isAuthorBlocked(post.getAuthor())) {
             showUnblockBar(activity, oauthRetrofit, post, itemView);
-        } else {
+        } else if (justHidden.contains(post.getFullName()) && hiddenThisSession.contains(post.getFullName())) {
+            showUnhideBar(activity, oauthRetrofit, post, itemView);
+        } else if (position >= 0) { // -1 = the post's own page: never folded away
             Mod69Ui.setCollapsed(itemView, shouldCollapse(post));
         }
+    }
+
+    private static final Set<String> justHidden = Collections.synchronizedSet(new HashSet<>());
+
+    private static void showUnhideBar(BaseActivity activity, Retrofit oauthRetrofit, Post post, View itemView) {
+        String t = post.getTitle() == null ? "" : post.getTitle();
+        if (t.length() > 40) t = t.substring(0, 40) + "…";
+        Mod69Ui.setBlockedBar(itemView, "Hidden: " + t, "UNHIDE", () -> {
+            justHidden.remove(post.getFullName());
+            hiddenThisSession.remove(post.getFullName());
+            post.setHidden(false);
+            Mod69Ui.setBlockedBar(itemView, null, null);
+            if (!Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) {
+                HidePost.unhidePost(oauthRetrofit, activity.accessToken, post.getFullName(), new HidePost.HidePostListener() {
+                    @Override
+                    public void success() {
+                        Toast.makeText(activity, "Shown again", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void failed() {
+                        Toast.makeText(activity, "Shown again here. Unhiding on Reddit failed", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
     }
 
     private static void showUnblockBar(BaseActivity activity, Retrofit oauthRetrofit, Post post, View itemView) {
         String author = post.getAuthor();
         Mod69Ui.setBlockedBar(itemView, "Blocked u/" + author, () -> {
             justBlocked.remove(post.getFullName());
-            blockedAuthors.remove(author == null ? "" : author.toLowerCase(Locale.ROOT));
             Mod69Ui.setBlockedBar(itemView, null, null);
-            if (!Account.ANONYMOUS_ACCOUNT.equals(activity.accountName) && author != null) {
-                ml.docilealligator.infinityforreddit.user.BlockUser.unblockUser(oauthRetrofit, activity.accessToken, author,
-                        new ml.docilealligator.infinityforreddit.user.BlockUser.BlockUserListener() {
-                            @Override
-                            public void success() {
-                                Toast.makeText(activity, "Unblocked u/" + author, Toast.LENGTH_SHORT).show();
-                            }
-
-                            @Override
-                            public void failed() {
-                                Toast.makeText(activity, "Shown again here. Unblocking on Reddit failed", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-            }
+            unblockHere(activity, oauthRetrofit, author);
         });
+    }
+
+    /** Shows the user's posts/comments again and unblocks them on Reddit. */
+    public static void unblockHere(BaseActivity activity, Retrofit oauthRetrofit, @Nullable String author) {
+        if (author == null) return;
+        blockedAuthors.remove(author.toLowerCase(Locale.ROOT));
+        if (Account.ANONYMOUS_ACCOUNT.equals(activity.accountName)) return;
+        ml.docilealligator.infinityforreddit.user.BlockUser.unblockUser(oauthRetrofit, activity.accessToken, author,
+                new ml.docilealligator.infinityforreddit.user.BlockUser.BlockUserListener() {
+                    @Override
+                    public void success() {
+                        Toast.makeText(activity, "Unblocked u/" + author, Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void failed() {
+                        Toast.makeText(activity, "Shown again here. Unblocking on Reddit failed", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     /** The gallery page shown in the feed right now (0 when unknown). */

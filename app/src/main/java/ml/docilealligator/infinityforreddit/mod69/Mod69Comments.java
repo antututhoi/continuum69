@@ -295,6 +295,13 @@ public final class Mod69Comments {
         hiddenUsers(c).edit().putLong(author.toLowerCase(Locale.ROOT), System.currentTimeMillis()).apply();
     }
 
+    public static void unhideUser(Context c, String author) {
+        hiddenUsers(c).edit().remove(author.toLowerCase(Locale.ROOT)).apply();
+    }
+
+    /** 69 mod: comments hidden/blocked just now (id -> "hidden"/"blocked"): they show a bar, not nothing. */
+    private static final java.util.Map<String, String> justActed = java.util.Collections.synchronizedMap(new java.util.HashMap<>());
+
     /** Sets up the row's buttons for one comment, and folds away comments of hidden/blocked users. */
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                @Nullable Post post, Comment comment, View itemView, Runnable refreshList) {
@@ -304,10 +311,34 @@ public final class Mod69Comments {
     public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
                                @Nullable Post post, Comment comment, View itemView, Runnable refreshList,
                                @Nullable View upvoteButton, @Nullable View downvoteButton) {
+        bindRow(row, activity, oauthRetrofit, post, comment, itemView, refreshList, upvoteButton, downvoteButton, null);
+    }
+
+    public static void bindRow(@Nullable Mod69Ui.ActionRow row, BaseActivity activity, Retrofit oauthRetrofit,
+                               @Nullable Post post, Comment comment, View itemView, Runnable refreshList,
+                               @Nullable View upvoteButton, @Nullable View downvoteButton, @Nullable android.widget.TextView scoreView) {
         itemView.setTag(R.id.mod69_tag_comment, comment);
         itemView.setTag(R.id.mod69_tag_post_object, post);
-        boolean collapse = isUserHidden(activity, comment.getAuthor()) || Mod69PostActions.isAuthorBlocked(comment.getAuthor());
-        Mod69Ui.setCollapsed(itemView, collapse);
+        Mod69Ui.setBlockedBar(itemView, null, null);
+        boolean hiddenUser = isUserHidden(activity, comment.getAuthor());
+        boolean blockedUser = Mod69PostActions.isAuthorBlocked(comment.getAuthor());
+        String acted = justActed.get(comment.getId());
+        if (acted != null && (hiddenUser || blockedUser)) {
+            String author = comment.getAuthor();
+            boolean blocked = "blocked".equals(acted);
+            Mod69Ui.setBlockedBar(itemView, (blocked ? "Blocked u/" : "Hidden u/") + author, blocked ? "UNBLOCK" : "UNHIDE", () -> {
+                justActed.remove(comment.getId());
+                if (blocked) {
+                    Mod69PostActions.unblockHere(activity, oauthRetrofit, author);
+                } else {
+                    unhideUser(activity, author);
+                }
+                refreshList.run();
+            });
+            return;
+        }
+        justActed.remove(comment.getId());
+        Mod69Ui.setCollapsed(itemView, hiddenUser || blockedUser);
         if (row == null) return;
         boolean show = Mod69PostActions.showButtons(activity);
         boolean media = hasMedia(comment);
@@ -341,13 +372,21 @@ public final class Mod69Comments {
                 .setMessage("u/" + comment.getAuthor())
                 .setPositiveButton(R.string.mod69_hide, (d, w) -> {
                     hideUser(activity, comment.getAuthor());
+                    justActed.put(comment.getId(), "hidden");
                     autoDownvoteComment(activity, oauthRetrofit, comment);
                     Toast.makeText(activity, R.string.mod69_user_hidden, Toast.LENGTH_SHORT).show();
                     refreshList.run();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 ));
-        row.block.setOnClickListener(v -> Mod69PostActions.blockUser(activity, oauthRetrofit, comment.getAuthor(), refreshList, refreshList));
+        row.block.setOnClickListener(v -> Mod69PostActions.blockUser(activity, oauthRetrofit, comment.getAuthor(), () -> {
+            justActed.put(comment.getId(), "blocked");
+            refreshList.run();
+        }, () -> {
+            justActed.remove(comment.getId());
+            refreshList.run();
+        }));
+        Mod69Ui.arrangeToolbar(upvoteButton, scoreView, downvoteButton, null);
     }
 
     /** Names of users whose comments are hidden (for a future settings list). */

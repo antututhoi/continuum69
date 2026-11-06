@@ -150,9 +150,31 @@ public class ImageAndGifEntry extends MarkwonAdapter.Entry<ImageAndGifBlock, Ima
         // 69 mod: animated pictures in comments never play by themselves. They show their first frame
         // with a "▶ GIF" badge; tapping the badge plays them right there.
         holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.setVisibility(node.mediaMetadata.isGIF ? View.VISIBLE : View.GONE);
+        holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.bringToFront();
         holder.binding.mod69PlayBadgeMarkdownImageAndGifBlock.setOnClickListener(v -> {
             v.setVisibility(View.GONE);
+            holder.binding.progressBarMarkdownImageAndGifBlock.setVisibility(View.VISIBLE);
+            // 69 mod: play it right here; start the animation by hand (some decoders wait for start())
             glide.load(url)
+                    .listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                            holder.binding.progressBarMarkdownImageAndGifBlock.setVisibility(View.GONE);
+                            v.setVisibility(View.VISIBLE);
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            holder.binding.progressBarMarkdownImageAndGifBlock.setVisibility(View.GONE);
+                            holder.binding.imageViewMarkdownImageAndGifBlock.post(() -> {
+                                if (resource instanceof android.graphics.drawable.Animatable) {
+                                    ((android.graphics.drawable.Animatable) resource).start();
+                                }
+                            });
+                            return false;
+                        }
+                    })
                     .apply(RequestOptions.bitmapTransform(new CenterInside()))
                     .downsample(saveMemoryCenterInsideDownsampleStrategy)
                     .into(holder.binding.imageViewMarkdownImageAndGifBlock);

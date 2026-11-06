@@ -646,7 +646,8 @@ public class CommentsRecyclerViewAdapterNew extends ListAdapter<Comment, Recycle
                 ml.docilealligator.infinityforreddit.mod69.Mod69Comments.bindRow(
                         ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.showButtons(mActivity) ? ml.docilealligator.infinityforreddit.mod69.Mod69Ui.attachRow(((CommentBaseViewHolder) holder).moreButton, mPrimaryTextColor) : null,
                         mActivity, mOauthRetrofit, mPost, comment, holder.itemView, this::notifyDataSetChanged,
-                        ((CommentBaseViewHolder) holder).upvoteButton, ((CommentBaseViewHolder) holder).downvoteButton);
+                        ((CommentBaseViewHolder) holder).upvoteButton, ((CommentBaseViewHolder) holder).downvoteButton,
+                        ((CommentBaseViewHolder) holder).scoreTextView);
 
                 if (!mHideTheNumberOfVotes) {
                     String commentText = "";

@@ -697,6 +697,16 @@ public class PostDetailRecyclerViewAdapterNew extends RecyclerView.Adapter<Recyc
                 return;
             }
             resetRowDecoration((PostDetailBaseViewHolder) holder);
+            // 69 mod: same two button rows as in the feed (Download / Hide / Block under the app's row)
+            {
+                PostDetailBaseViewHolder h = (PostDetailBaseViewHolder) holder;
+                View anchor = h.shareButton != null ? h.shareButton : h.upvoteButton;
+                ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.bindRow(
+                        ml.docilealligator.infinityforreddit.mod69.Mod69PostActions.showButtons(mActivity)
+                                ? ml.docilealligator.infinityforreddit.mod69.Mod69Ui.attachRow(anchor, mPrimaryTextColor) : null,
+                        mActivity, mOauthRetrofit, mPost, -1, holder.itemView, h.upvoteButton, h.downvoteButton,
+                        h.scoreTextView, h.commentsCountButton);
+            }
             ((PostDetailBaseViewHolder) holder).titleTextView.setText(mPost.getTitle());
             applyTypeColor(((PostDetailBaseViewHolder) holder).typeTextView, mPost.getPostType());
             if (mPost.getSubredditNamePrefixed().startsWith("u/")) {

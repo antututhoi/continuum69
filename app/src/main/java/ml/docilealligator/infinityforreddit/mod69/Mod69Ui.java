@@ -167,16 +167,14 @@ public final class Mod69Ui {
         }
         score.setVisibility(View.GONE);
         comments.setVisibility(View.GONE);
-        // comments on the left, votes with the score in the middle, then download, hide, block
-        addEvenView(row, comments);
+        // 69 mod: second row = Hide (left), Download (middle), Block (right), even gaps.
+        // The votes and comments stay in the app's own first row (see arrangeToolbar).
+        up.setVisibility(View.GONE);
+        down.setVisibility(View.GONE);
         addEven(row, hide);
         addEven(row, select);
-        addEven(row, up);
-        addEvenView(row, score);
-        addEven(row, down);
         addEven(row, download);
         addEven(row, block);
-
         int index = container.indexOfChild(toolbar);
         ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
         LinearLayout wrapper = new LinearLayout(c);
@@ -220,6 +218,10 @@ public final class Mod69Ui {
      * disappearing. [onUnblock] null removes the bar again.
      */
     public static void setBlockedBar(View itemView, @Nullable String text, @Nullable Runnable onUnblock) {
+        setBlockedBar(itemView, text, "UNBLOCK", onUnblock);
+    }
+
+    public static void setBlockedBar(View itemView, @Nullable String text, String buttonText, @Nullable Runnable onUnblock) {
         if (!(itemView instanceof ViewGroup)) return;
         ViewGroup g = (ViewGroup) itemView;
         Object old = g.getTag(R.id.mod69_blocked_bar);
@@ -257,7 +259,7 @@ public final class Mod69Ui {
         t.setTextColor(0xFF9E9E9E);
         bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView un = new TextView(c);
-        un.setText("UNBLOCK");
+        un.setText(buttonText);
         un.setTextColor(0xFFFF4500);
         un.setPadding(dp(c, 12), dp(c, 8), dp(c, 12), dp(c, 8));
         un.setBackground(selectable(c));
@@ -407,60 +409,57 @@ public final class Mod69Ui {
     public static void bindVotes(ml.docilealligator.infinityforreddit.activities.BaseActivity activity, ActionRow row,
                                  @Nullable View realUp, @Nullable View realDown, java.util.function.IntSupplier voteType,
                                  @Nullable String swipeKey, @Nullable TextView realScore) {
+        // the app's own vote buttons and score are used as they are (they keep their colours after
+        // swipe votes and after coming back from a post); only their place changes
+        row.up.setVisibility(View.GONE);
+        row.down.setVisibility(View.GONE);
+        row.score.setVisibility(View.GONE);
+        row.comments.setVisibility(View.GONE);
+        row.refreshVotes = null;
         android.content.SharedPreferences sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity);
-        boolean swipeVotes = swipeKey != null && sp.getBoolean(swipeKey, false)
+        boolean hideArrows = swipeKey != null && sp.getBoolean(swipeKey, false)
                 && sp.getBoolean(Mod69Prefs.HIDE_VOTES_WHEN_SWIPING, true);
-        if (realScore != null && sp.getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true)) {
-            row.score.setVisibility(View.VISIBLE);
-            realScore.setVisibility(View.GONE);
-        } else {
-            row.score.setVisibility(View.GONE);
+        if (realUp != null) realUp.setVisibility(hideArrows ? View.GONE : View.VISIBLE);
+        if (realDown != null) realDown.setVisibility(hideArrows ? View.GONE : View.VISIBLE);
+    }
+
+    /**
+     * 69 mod: first row of a post = comments button + count on the left, vote count in the middle
+     * (with the arrows next to it when they are shown), the app's other buttons on the right.
+     * For comments only the vote count is moved to the middle. Done once per toolbar.
+     */
+    public static void arrangeToolbar(@Nullable View up, @Nullable TextView score, @Nullable View down, @Nullable View comments) {
+        if (score == null || !(score.getParent() instanceof androidx.constraintlayout.widget.ConstraintLayout)) return;
+        androidx.constraintlayout.widget.ConstraintLayout bar = (androidx.constraintlayout.widget.ConstraintLayout) score.getParent();
+        if (Boolean.TRUE.equals(bar.getTag(R.id.mod69_saved_layout))) return;
+        if (score.getId() == View.NO_ID) return;
+        if (up != null && (up.getParent() != bar || up.getId() == View.NO_ID)) return;
+        if (down != null && (down.getParent() != bar || down.getId() == View.NO_ID)) return;
+        if (comments != null && (comments.getParent() != bar || comments.getId() == View.NO_ID)) comments = null;
+        androidx.constraintlayout.widget.ConstraintSet cs = new androidx.constraintlayout.widget.ConstraintSet();
+        cs.clone(bar);
+        int P = androidx.constraintlayout.widget.ConstraintSet.PARENT_ID;
+        int S = androidx.constraintlayout.widget.ConstraintSet.START, E = androidx.constraintlayout.widget.ConstraintSet.END;
+        cs.clear(score.getId(), S);
+        cs.clear(score.getId(), E);
+        cs.connect(score.getId(), S, P, S);
+        cs.connect(score.getId(), E, P, E);
+        cs.setHorizontalBias(score.getId(), 0.5f);
+        if (up != null) {
+            cs.clear(up.getId(), S);
+            cs.clear(up.getId(), E);
+            cs.connect(up.getId(), E, score.getId(), S);
         }
-        boolean show = realUp != null && realDown != null && !swipeVotes;
-        if (realUp != null && realDown != null && swipeVotes) {
-            boolean hideOriginal = sp.getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true);
-            realUp.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
-            realDown.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
+        if (down != null) {
+            cs.clear(down.getId(), S);
+            cs.clear(down.getId(), E);
+            cs.connect(down.getId(), S, score.getId(), E);
         }
-        Runnable scoreSync = () -> {
-            if (realScore == null) return;
-            row.score.setText(realScore.getText());
-            row.score.setTextColor(realScore.getCurrentTextColor());
-        };
-        scoreSync.run();
-        row.refreshVotes = scoreSync;
-        row.up.setVisibility(show ? View.VISIBLE : View.GONE);
-        row.down.setVisibility(show ? View.VISIBLE : View.GONE);
-        if (!show) return;
-        // "Hide the app's own vote buttons": the row's buttons still press them, they are just not shown
-        boolean hideOriginal = androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity)
-                .getBoolean(Mod69Prefs.HIDE_ORIGINAL_VOTES, true);
-        realUp.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
-        realDown.setVisibility(hideOriginal ? View.GONE : View.VISIBLE);
-        Runnable tint = () -> {
-            int v = voteType.getAsInt();
-            int upColor = row.iconColor, downColor = row.iconColor;
-            try {
-                if (v == 1) upColor = activity.customThemeWrapper.getUpvoted();
-                if (v == -1) downColor = activity.customThemeWrapper.getDownvoted();
-            } catch (Exception ignored) {
-            }
-            row.up.setColorFilter(upColor, PorterDuff.Mode.SRC_IN);
-            row.down.setColorFilter(downColor, PorterDuff.Mode.SRC_IN);
-        };
-        Runnable both = () -> {
-            tint.run();
-            scoreSync.run();
-        };
-        both.run();
-        row.refreshVotes = both;
-        row.up.setOnClickListener(x -> {
-            realUp.performClick();
-            row.refreshVotesSoon(); // the app saves the vote a moment later
-        });
-        row.down.setOnClickListener(x -> {
-            realDown.performClick();
-            row.refreshVotesSoon();
-        });
+        if (comments != null) {
+            cs.clear(comments.getId(), S);
+            cs.connect(comments.getId(), S, P, S);
+        }
+        cs.applyTo(bar);
+        bar.setTag(R.id.mod69_saved_layout, Boolean.TRUE);
     }
 }
